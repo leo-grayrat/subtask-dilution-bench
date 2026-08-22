@@ -1,0 +1,23 @@
+{
+  "id": "S02",
+  "source_task": "insurance_vanguard_shield_mutual_9b2f7a29",
+  "source_commit": "86505865fefe4c0565298ec7380498beb87a9049",
+  "rule": "Items above 5000 require valid manager approval before clearing; otherwise they go to exception handling.",
+  "variants": {
+    "active": {
+      "amount": 7500,
+      "approver_user": "junior.analyst",
+      "approver_title": "Junior Operations Analyst",
+      "expected_route": "exception"
+    },
+    "inactive": {
+      "amount": 7500,
+      "approver_user": "sarah.chen",
+      "approver_title": "Finance Manager",
+      "expected_route": "clear"
+    }
+  },
+  "result_schema": {
+    "route": ["exception", "clear"]
+  }
+}
