@@ -38,14 +38,18 @@
 
 ## 目前任务
 
-- [ ] 将三个方向分别整理成独立实验设计，避免为了统一故事而共享指标或强行耦合。
-- [ ] 子任务稀释：继续从现有 benchmark 中筛真实复杂任务与材料，先做小规模 paired / fork pilot，确认整体任务增大后是否真的出现可复现的局部退化。
-- [ ] 显著反馈导致资源失衡：构造“反馈显著性 × 局部实际价值”的受控实验，记录局部投入和最终全局机会成本。
-- [ ] 上下文不参与决策：基于已有 constraint / agent benchmark 构造 Recall–Applicability–Execution 三联测试，并加入应执行/不应执行的反事实对照。
+- [x] 将三个方向分别整理成独立实验设计，避免为了统一故事而共享指标或强行耦合。
+- [ ] 子任务稀释：从候选 benchmark 抽真实复杂任务，按 direct / sham / reconsider 做小规模 checkpoint-fork pilot。
+- [ ] 显著反馈导致资源失衡：从可控制连续反馈的真实任务中做“反馈显著性 × 局部实际价值”pilot，记录局部投入和全局机会成本。
+- [ ] 上下文不参与决策：先从 HANDBOOK.md / CCTU 抽 constraint-action 单元，建立 Recall–Applicability–Execution 三联 pilot，并加入 active / inactive 反事实对照。
 - [ ] 三个方向都先做小规模 pilot；没有稳定信号的方向及时停止，不先扩成大题库。
 
 ## 目前文档
 
-- [`docs/design.md`](docs/design.md)：当前 benchmark 设计骨架。
-- [`docs/source-selection.md`](docs/source-selection.md)：现有 benchmark 素材应该怎么筛。
+- [`docs/design.md`](docs/design.md)：子任务稀释的当前实验设计。
+- [`docs/source-selection.md`](docs/source-selection.md)：子任务稀释的素材筛选与参考 benchmark。
+- [`docs/feedback-allocation/design.md`](docs/feedback-allocation/design.md)：显著反馈导致资源失衡的实验设计。
+- [`docs/feedback-allocation/source-selection.md`](docs/feedback-allocation/source-selection.md)：显著反馈方向的参考资料与素材筛选。
+- [`docs/context-integration/design.md`](docs/context-integration/design.md)：上下文不参与决策的实验设计。
+- [`docs/context-integration/source-selection.md`](docs/context-integration/source-selection.md)：上下文整合方向的参考 benchmark 与筛选标准。
 - [`archive/failed-design/`](archive/failed-design/)：此前失败设计对话的原始存档。我说白了， AI 根本无法处理这么复杂多角度的事情……
