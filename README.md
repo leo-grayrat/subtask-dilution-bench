@@ -46,8 +46,8 @@
 
 ## 目前文档
 
-- [`docs/design.md`](docs/design.md)：子任务稀释的当前实验设计。
-- [`docs/source-selection.md`](docs/source-selection.md)：子任务稀释的素材筛选与参考 benchmark。
+- [`docs/subtask-dilution/design.md`](docs/subtask-dilution/design.md)：子任务稀释的当前实验设计。
+- [`docs/subtask-dilution/source-selection.md`](docs/subtask-dilution/source-selection.md)：子任务稀释的素材筛选与参考 benchmark。
 - [`docs/feedback-allocation/design.md`](docs/feedback-allocation/design.md)：显著反馈导致资源失衡的实验设计。
 - [`docs/feedback-allocation/source-selection.md`](docs/feedback-allocation/source-selection.md)：显著反馈方向的参考资料与素材筛选。
 - [`docs/context-integration/design.md`](docs/context-integration/design.md)：上下文不参与决策的实验设计。
