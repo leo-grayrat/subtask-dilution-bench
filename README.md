@@ -52,5 +52,6 @@
 - [`docs/feedback-allocation/source-selection.md`](docs/feedback-allocation/source-selection.md)：显著反馈方向的参考资料与素材筛选。
 - [`docs/context-integration/design.md`](docs/context-integration/design.md)：上下文不参与决策的实验设计。
 - [`docs/context-integration/pilot-spec.md`](docs/context-integration/pilot-spec.md)：上下文不参与决策的第一轮 pilot 规格。
+- [`docs/context-integration/candidate-screening.md`](docs/context-integration/candidate-screening.md)：HANDBOOK 真实任务的 pilot 候选筛选记录。
 - [`docs/context-integration/source-selection.md`](docs/context-integration/source-selection.md)：上下文整合方向的参考 benchmark 与筛选标准。
 - [`archive/failed-design/`](archive/failed-design/)：此前失败设计对话的原始存档。我说白了， AI 根本无法处理这么复杂多角度的事情……
