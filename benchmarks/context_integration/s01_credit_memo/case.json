@@ -1,0 +1,21 @@
+{
+  "id": "S01",
+  "source_task": "finance_meridian_partners_158b9045",
+  "source_commit": "86505865fefe4c0565298ec7380498beb87a9049",
+  "rule": "Credit memo amount above the referenced invoice amount must go to dispute; otherwise continue normal credit processing.",
+  "variants": {
+    "active": {
+      "invoice_amount": 1950,
+      "credit_amount": 2000,
+      "expected_route": "dispute"
+    },
+    "inactive": {
+      "invoice_amount": 1950,
+      "credit_amount": 1900,
+      "expected_route": "normal_credit"
+    }
+  },
+  "result_schema": {
+    "route": ["dispute", "normal_credit"]
+  }
+}
