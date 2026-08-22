@@ -41,7 +41,7 @@
 - [x] 将三个方向分别整理成独立实验设计，避免为了统一故事而共享指标或强行耦合。
 - [ ] 子任务稀释：从候选 benchmark 抽真实复杂任务，按 direct / sham / reconsider 做小规模 checkpoint-fork pilot。
 - [ ] 显著反馈导致资源失衡：从可控制连续反馈的真实任务中做“反馈显著性 × 局部实际价值”pilot，记录局部投入和全局机会成本。
-- [ ] 上下文不参与决策：先从 HANDBOOK.md / CCTU 抽 constraint-action 单元，建立 Recall–Applicability–Execution 三联 pilot，并加入 active / inactive 反事实对照。
+- [ ] 上下文不参与决策：按 `pilot-spec.md` 从 HANDBOOK.md 筛约 20～30 个局部决策，建立规则记忆、规则应用、局部执行、完整执行四层 pilot，并做正反版本。
 - [ ] 三个方向都先做小规模 pilot；没有稳定信号的方向及时停止，不先扩成大题库。
 
 ## 目前文档
@@ -51,5 +51,6 @@
 - [`docs/feedback-allocation/design.md`](docs/feedback-allocation/design.md)：显著反馈导致资源失衡的实验设计。
 - [`docs/feedback-allocation/source-selection.md`](docs/feedback-allocation/source-selection.md)：显著反馈方向的参考资料与素材筛选。
 - [`docs/context-integration/design.md`](docs/context-integration/design.md)：上下文不参与决策的实验设计。
+- [`docs/context-integration/pilot-spec.md`](docs/context-integration/pilot-spec.md)：上下文不参与决策的第一轮 pilot 规格。
 - [`docs/context-integration/source-selection.md`](docs/context-integration/source-selection.md)：上下文整合方向的参考 benchmark 与筛选标准。
 - [`archive/failed-design/`](archive/failed-design/)：此前失败设计对话的原始存档。我说白了， AI 根本无法处理这么复杂多角度的事情……
