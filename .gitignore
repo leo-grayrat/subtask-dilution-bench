@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.pytest_cache*/
+.pytest_tmp*/
+
+# Local generated task packages and release checks
+experiments/*-build-check/
+experiments/next-samples-release-check/
+experiments/s01-first-run/
