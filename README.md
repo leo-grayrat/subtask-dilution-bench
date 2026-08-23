@@ -41,7 +41,7 @@
 - [x] 将三个方向分别整理成独立实验设计，避免为了统一故事而共享指标或强行耦合。
 - [ ] 子任务稀释：从候选 benchmark 抽真实复杂任务，按 direct / sham / reconsider 做小规模 checkpoint-fork pilot。
 - [ ] 显著反馈导致资源失衡：从可控制连续反馈的真实任务中做“反馈显著性 × 局部实际价值”pilot，记录局部投入和全局机会成本。
-- [ ] 上下文不参与决策：第一批 S01 已实现；第二批六道结构不同的真实任务已完成“局部/完整 × 正反状态”生成、评分和匿名打包。先用小规模真实运行判断信号，再决定是否继续扩到 20～30 题。
+- [ ] 上下文不参与决策：v0 已冻结 S01、S02、S04、S07、S08、S09、S10 共 7 个母任务；Local/Full 的 A/B 生成、评分和匿名打包已经完成，Recall、Applicability、独立隔离验证和正式重复运行尚未完成。当前不再扩题，也还没有真实模型研究结果。
 - [ ] 三个方向都先做小规模 pilot；没有稳定信号的方向及时停止，不先扩成大题库。
 
 ## 目前文档
@@ -57,7 +57,7 @@
 - [`docs/context-integration/status-v0.md`](docs/context-integration/status-v0.md)：七个已实现母任务、现有工程资产、缺失诊断层和当前结论边界。
 - [`docs/context-integration/candidate-screening.md`](docs/context-integration/candidate-screening.md)：HANDBOOK 真实任务的 pilot 候选筛选记录。
 - [`docs/context-integration/source-selection.md`](docs/context-integration/source-selection.md)：上下文整合方向的参考 benchmark 与筛选标准。
-- [`docs/context-integration/next-samples-v1.md`](docs/context-integration/next-samples-v1.md)：结合早期对话原始动机重新筛选的下一批题目，优先增加结构差异而不是继续堆金额和日期门槛。
+- [`docs/context-integration/next-samples-v1.md`](docs/context-integration/next-samples-v1.md)：第二批六个已实现母任务的历史选择依据；当前冻结状态以 `status-v0.md` 和 `pilot-spec.md` 为准。
 - [`experiments/next-samples-progress.md`](experiments/next-samples-progress.md)：第二批六道题的实际制作和验证结果。
 - [`archive/failed-design/`](archive/failed-design/)：此前失败设计对话的原始存档。我说白了， AI 根本无法处理这么复杂多角度的事情……
 

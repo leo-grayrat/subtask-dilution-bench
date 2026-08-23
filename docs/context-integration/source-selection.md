@@ -110,6 +110,6 @@
 
 第一版尽量回避，优先使用结构化状态和程序化 validator。
 
-## 9. 下一步
+## 9. 当前状态
 
-先从 HANDBOOK.md 和 CCTU 抽一小批有清晰 validator 的 constraint-action 单元，建立 Recall–Applicability–Execution 三联表；再用 τ-bench / ToolSandbox 扩展 world-state 和反事实类型。
+v0 已冻结为 7 个 HANDBOOK 母任务，不再继续从 CCTU、τ-bench、ToolSandbox 或其他来源扩题。本文件中的其他来源仅保留为未来独立外部验证的参考；只有 v0 完成并另行评审、预注册后才可启用。
