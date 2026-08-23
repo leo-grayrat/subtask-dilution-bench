@@ -54,4 +54,5 @@
 - [`docs/context-integration/pilot-spec.md`](docs/context-integration/pilot-spec.md)：上下文不参与决策的第一轮 pilot 规格。
 - [`docs/context-integration/candidate-screening.md`](docs/context-integration/candidate-screening.md)：HANDBOOK 真实任务的 pilot 候选筛选记录。
 - [`docs/context-integration/source-selection.md`](docs/context-integration/source-selection.md)：上下文整合方向的参考 benchmark 与筛选标准。
+- [`docs/context-integration/next-samples-v1.md`](docs/context-integration/next-samples-v1.md)：结合早期对话原始动机重新筛选的下一批题目，优先增加结构差异而不是继续堆金额和日期门槛。
 - [`archive/failed-design/`](archive/failed-design/)：此前失败设计对话的原始存档。我说白了， AI 根本无法处理这么复杂多角度的事情……

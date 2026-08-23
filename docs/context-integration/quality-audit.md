@@ -10,8 +10,8 @@
 
 制作第一批样本后，25 个候选更新为：
 
-- **可直接制作：14 个**
-- **需补核：7 个**
+- **可直接制作：17 个**
+- **需补核：4 个**
 - **应降级：4 个**
 
 | # | 来源 | 状态 | 结论 |
@@ -25,7 +25,7 @@
 | 7 | CareIG / `f5947c33` 3 次未联系成功 | 可直接制作 | “三次且 none reached”与“其中一次 reached”直接翻转 unreachable / continue 路径 |
 | 8 | Gear Systems / `0807b5a6` quarantine release | **应降级** | 授权人身份与货物质量状态纠缠，无法做纯单事实权限题 |
 | 9 | Mojave Crest / `187e3a8c` coverage termination vs 72h | 可直接制作 | 更早日期决定 deadline，反事实非常干净 |
-| 10 | Vanguard / `82da8d17` beneficiary 生存状态 | 可直接制作 | SOP 和 evaluator 支持“死亡 primary 排除、surviving primaries 重分配”；但首批 fixture 暂缓，先读清决定 Linda 已故的具体二进制附件 |
+| 10 | Vanguard / `82da8d17` beneficiary 生存状态 | 可直接制作 | 已读出保单和两份死亡证明：`additional_document_drummond_01.pdf` 明确证明 Linda 早于被保险人去世；可用“附件存在/不存在”翻转三人原比例与两名存活 primary 的按比例重分配 |
 | 11 | Meridian / `331accf1` $99 / $100 discount | 可直接制作 | SOP 明确 `$100` 为边界，原任务本身已有边界两侧评分逻辑 |
 | 12 | Ridgeline / `6e501f78` bereavement 天数 | 可直接制作 | 请求时长跨政策范围后动作翻转 |
 | 13 | Mojave Crest / `ab59bcf7` $25k authority | 可直接制作 | 金额跨授权额度后需要 co-sign / escalation |
@@ -36,10 +36,10 @@
 | 18 | Sunshine Set / `ebac9768` $50/$51 tier | 可直接制作 | 跨层级后通知对象和时序改变 |
 | 19 | Sunshine Set / `b581c493` $249/$250 offset | 可直接制作 | 授权带边界清晰 |
 | 20 | CareIG / `ea622238` Physician_NPI | **需补核** | 制作时发现原始邮件写的是 `NPI: NPI` 占位值，而 SOP 明确条件是 Physician_NPI blank；不能自行把二者当成同一状态 |
-| 21 | Meridian / `a0895480` expired agreement | 需补核 | 当前侧评分很强，但还需证明协议有效时没有另一独立 hold |
+| 21 | Meridian / `a0895480` expired agreement | 可直接制作 | 已核对供应商为 Active、金额与协议完全一致；协议有效时没有第二个独立 hold。正常侧还要应用供应商账上的 $150 outstanding credit，但这不会阻止付款路径翻转 |
 | 22 | Meridian / `4dace65e` 缺 City/State/Zip | 需补核 | 需证明补齐地址后三字段之外没有第二 blocker |
-| 23 | Sunshine Set / `d9d532c1` Deal 4505 reversed | 需补核 | 原 evaluator 把 4505 与 4507 合并检查，需单独抽 scorer |
-| 24 | Vanguard / `89007056` unauthorized vendor | 需补核 | 需证明换成 authorized vendor 后不会仍被 business justification 等规则挡住 |
+| 23 | Sunshine Set / `d9d532c1` Deal 4505 reversed | 可直接制作 | 已核对佣金表、交易总表、买家订单和 SOP：佣金表列有 $840，但交易总表明确为 lender rejected / unwind；可抽出只检查 4505 的 scorer，反向版本恢复为有效已入账交易 |
+| 24 | Vanguard / `89007056` Shopify purchase evidence | 可直接制作 | 原“unauthorized vendor”标签不精确；真实条件是员工邮箱下是否存在匹配的已完成 Shopify 内部商店订单。另一行 mileage 有 Calendar 支持，因此增加匹配订单后可干净翻转整份报告 |
 | 25 | Meridian / `19d57538` aggregate total mismatch | **应降级** | 总额、单价、数量数学耦合，难以只改一个自然事实同时维持数据一致 |
 
 ## 制作阶段发现的四个关键问题
@@ -79,4 +79,4 @@
 
 ## 当前停止点
 
-现在不再继续扩题，也不再继续写方法说明。下一步是把这 6 个规格真正变成可运行 fixture / scorer，并先跑一个很小的四层测试，检查整个实验链路是否工作。
+被测智能体的隔离运行已经暂停，不再把它作为下一阶段的前置条件。下一步按 `next-samples-v1.md` 优先制作结构不同的样本和评分；原定 S03、S05、S06 暂留候选池，不优先实现。
