@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 from typing import Mapping
@@ -112,3 +113,41 @@ def build_diagnostic_tasks(
             tasks[f"{case_id}:state_{state_id}"] = state_task
 
     return tasks
+
+
+def score_diagnostic_answer(
+    answer_path: str | Path,
+    *,
+    case_id: str,
+    condition: str,
+    cases: Mapping[str, Mapping],
+) -> dict:
+    answer = json.loads(Path(answer_path).read_text(encoding="utf-8"))
+    case = cases[case_id]
+    if condition == "policy":
+        expected = case["rule"]
+        checks = {
+            "condition": answer.get("condition") == expected["condition"],
+            "when_true": answer.get("when_true") == expected["when_true"],
+            "when_false": answer.get("when_false") == expected["when_false"],
+            "source_file": answer.get("source_file") in case["policy_files"],
+        }
+    elif condition.startswith("state_") and condition[6:] in case["states"]:
+        state = case["states"][condition[6:]]
+        fact_ids = answer.get("supporting_fact_ids")
+        checks = {
+            "action": answer.get("action") == state["expected_action"],
+            "supporting_fact_ids": isinstance(fact_ids, list)
+            and set(fact_ids) == set(state["supporting_fact_ids"]),
+            "reasoning": isinstance(answer.get("reasoning"), str)
+            and bool(answer["reasoning"].strip()),
+        }
+    else:
+        raise ValueError(f"unknown condition: {condition}")
+
+    score = sum(checks.values()) / len(checks)
+    return {
+        "pass": all(checks.values()),
+        "score": round(score, 3),
+        "checks": checks,
+    }
