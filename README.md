@@ -61,6 +61,7 @@
 - [`docs/context-integration/source-selection.md`](docs/context-integration/source-selection.md)：上下文整合方向的参考 benchmark 与筛选标准。
 - [`docs/context-integration/next-samples-v1.md`](docs/context-integration/next-samples-v1.md)：第二批六个已实现母任务的历史选择依据；当前冻结状态以 `status-v0.md` 和 `pilot-spec.md` 为准。
 - [`experiments/next-samples-progress.md`](experiments/next-samples-progress.md)：第二批六道题的实际制作和验证结果。
+- [`experiments/design-progress-2026-08-24.md`](experiments/design-progress-2026-08-24.md)：面向审阅的简明进度说明，汇总今天保留、完成和仍未完成的工作。
 - [`archive/failed-design/`](archive/failed-design/)：此前失败设计对话的原始存档。我说白了， AI 根本无法处理这么复杂多角度的事情……
 
 ## 生成第二批匿名任务包
