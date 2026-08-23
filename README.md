@@ -41,7 +41,7 @@
 - [x] 将三个方向分别整理成独立实验设计，避免为了统一故事而共享指标或强行耦合。
 - [ ] 子任务稀释：从候选 benchmark 抽真实复杂任务，按 direct / sham / reconsider 做小规模 checkpoint-fork pilot。
 - [ ] 显著反馈导致资源失衡：从可控制连续反馈的真实任务中做“反馈显著性 × 局部实际价值”pilot，记录局部投入和全局机会成本。
-- [ ] 上下文不参与决策：按 `pilot-spec.md` 从 HANDBOOK.md 筛约 20～30 个局部决策，建立规则记忆、规则应用、局部执行、完整执行四层 pilot，并做正反版本。
+- [ ] 上下文不参与决策：第一批 S01 已实现；第二批六道结构不同的真实任务已完成“局部/完整 × 正反状态”生成、评分和匿名打包。先用小规模真实运行判断信号，再决定是否继续扩到 20～30 题。
 - [ ] 三个方向都先做小规模 pilot；没有稳定信号的方向及时停止，不先扩成大题库。
 
 ## 目前文档
@@ -55,4 +55,18 @@
 - [`docs/context-integration/candidate-screening.md`](docs/context-integration/candidate-screening.md)：HANDBOOK 真实任务的 pilot 候选筛选记录。
 - [`docs/context-integration/source-selection.md`](docs/context-integration/source-selection.md)：上下文整合方向的参考 benchmark 与筛选标准。
 - [`docs/context-integration/next-samples-v1.md`](docs/context-integration/next-samples-v1.md)：结合早期对话原始动机重新筛选的下一批题目，优先增加结构差异而不是继续堆金额和日期门槛。
+- [`experiments/next-samples-progress.md`](experiments/next-samples-progress.md)：第二批六道题的实际制作和验证结果。
 - [`archive/failed-design/`](archive/failed-design/)：此前失败设计对话的原始存档。我说白了， AI 根本无法处理这么复杂多角度的事情……
+
+## 生成第二批匿名任务包
+
+本机已有 HANDBOOK 仓库时，可一次生成六道题共 24 个匿名 ZIP：
+
+```powershell
+python -m benchmarks.context_integration.make_release `
+  --handbook D:\File\Git\handbook `
+  --release-output experiments\next-samples-release\release `
+  --private-manifest experiments\next-samples-release\private\mapping.json
+```
+
+`release` 目录只含匿名 ZIP 和校验值；条件对应表单独写入 `private/mapping.json`，不能交给被测模型。
