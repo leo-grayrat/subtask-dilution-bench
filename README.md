@@ -46,6 +46,8 @@
 
 ## 目前文档
 
+- [`docs/research-ledger.md`](docs/research-ledger.md)：跨版本研究总账，固定三条研究线、不得静默推翻的原则、现有成果位置和证据边界。任何新搜索、扩题或实现先对照这里。
+- [`docs/superpowers/specs/2026-08-24-integrated-benchmark-program-design.md`](docs/superpowers/specs/2026-08-24-integrated-benchmark-program-design.md)：三条实验线的综合结构、推进顺序和共同测试前门槛。
 - [`docs/subtask-dilution/design.md`](docs/subtask-dilution/design.md)：子任务稀释的当前实验设计。
 - [`docs/subtask-dilution/source-selection.md`](docs/subtask-dilution/source-selection.md)：子任务稀释的素材筛选与参考 benchmark。
 - [`docs/feedback-allocation/design.md`](docs/feedback-allocation/design.md)：显著反馈导致资源失衡的实验设计。
