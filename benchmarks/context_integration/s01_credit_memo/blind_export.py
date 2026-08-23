@@ -9,8 +9,16 @@ from pathlib import Path
 VARIANT_NAMES = ("local_A", "local_B", "full_A", "full_B")
 TEXT_SUFFIXES = {".md", ".txt", ".json", ".toml", ".yaml", ".yml", ".py"}
 FORBIDDEN_MARKERS = (
+    "benchmark",
     "context_integration",
+    "context-integration",
     "s01_credit_memo",
+    "s02_manager_approval",
+    "s04_contact_history",
+    "s07_beneficiary_survival",
+    "s08_expired_agreement",
+    "s09_reversed_deal",
+    "s10_store_order",
     "pilot-samples",
     "quality-audit",
     "rubrics.json",
