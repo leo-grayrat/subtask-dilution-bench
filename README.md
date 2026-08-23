@@ -54,6 +54,7 @@
 - [`docs/feedback-allocation/source-selection.md`](docs/feedback-allocation/source-selection.md)：显著反馈方向的参考资料与素材筛选。
 - [`docs/context-integration/design.md`](docs/context-integration/design.md)：上下文不参与决策的实验设计。
 - [`docs/context-integration/pilot-spec.md`](docs/context-integration/pilot-spec.md)：上下文不参与决策的第一轮 pilot 规格。
+- [`docs/context-integration/status-v0.md`](docs/context-integration/status-v0.md)：七个已实现母任务、现有工程资产、缺失诊断层和当前结论边界。
 - [`docs/context-integration/candidate-screening.md`](docs/context-integration/candidate-screening.md)：HANDBOOK 真实任务的 pilot 候选筛选记录。
 - [`docs/context-integration/source-selection.md`](docs/context-integration/source-selection.md)：上下文整合方向的参考 benchmark 与筛选标准。
 - [`docs/context-integration/next-samples-v1.md`](docs/context-integration/next-samples-v1.md)：结合早期对话原始动机重新筛选的下一批题目，优先增加结构差异而不是继续堆金额和日期门槛。
