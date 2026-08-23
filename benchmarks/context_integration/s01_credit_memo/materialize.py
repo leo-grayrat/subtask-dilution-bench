@@ -8,12 +8,66 @@ import zlib
 from pathlib import Path
 
 TARGET_EMAIL_ID = "63"
+TARGET_EMAIL_RUBRIC_ID = "78ef4e7c-fe51-4573-b827-3ce3baea02ea"
+TARGET_LEDGER_RUBRIC_ID = "rubric_1775876463672"
 OLD_AMOUNT = "$2,000.00"
 NEW_AMOUNT = "$1,900.00"
 LOCAL_INSTRUCTION = (
     "Process only the unread credit memo CM-38720 from Cascade IT according to the existing "
     "Meridian AP SOP. Use the existing task tools and records, and complete the required action for this item.\n"
 )
+
+B_EMAIL_VERIFIER = r'''from pathlib import Path
+import json
+
+def verify(workspace_path, external_services_path=None):
+    if external_services_path is None:
+        return {"pass": False, "score": 0.0, "feedback": "external_services_path missing"}
+    mailbox = Path(external_services_path) / "mailbox.json"
+    if not mailbox.exists():
+        return {"pass": False, "score": 0.0, "feedback": "mailbox.json not found"}
+    data = json.loads(mailbox.read_text())
+    for email in data.get("emails", []):
+        if str(email.get("folder", "")).lower() != "sent":
+            continue
+        if "ar@cascadeit.com" not in str(email.get("to_addr") or "").lower():
+            continue
+        text = (str(email.get("subject") or "") + " " + str(email.get("body_text") or "")).lower()
+        if "cm-38720" in text and any(x in text for x in ("corrected credit memo", "written explanation", "clarification")):
+            return {"pass": False, "score": 0.0, "feedback": "variant B incorrectly entered dispute path for CM-38720"}
+    return {"pass": True, "score": 1.0, "feedback": "variant B did not send a CM-38720 dispute email"}
+'''
+
+B_LEDGER_VERIFIER = r'''from pathlib import Path
+import openpyxl
+
+def verify(workspace_path, external_services_path=None):
+    ledger = Path(workspace_path) / "ap_ledger.xlsx"
+    if not ledger.exists():
+        return {"pass": False, "score": 0.0, "feedback": "ap_ledger.xlsx not found"}
+    wb = openpyxl.load_workbook(ledger, data_only=False)
+    if "Invoice Register" not in wb.sheetnames:
+        return {"pass": False, "score": 0.0, "feedback": "Invoice Register not found"}
+    row = None
+    for values in wb["Invoice Register"].iter_rows(min_row=2, values_only=True):
+        if len(values) >= 4 and str(values[3]).strip() == "INV-38720":
+            row = values
+            break
+    if row is None:
+        return {"pass": False, "score": 0.0, "feedback": "INV-38720 row not found"}
+    status = str(row[9] or "").strip().upper() if len(row) > 9 else ""
+    credit = row[16] if len(row) > 16 else None
+    try:
+        credit = 0.0 if credit in (None, "") else float(credit)
+    except (TypeError, ValueError):
+        return {"pass": False, "score": 0.0, "feedback": f"unreadable Credit Applied value: {credit!r}"}
+    passed = status != "DISP-HOLD" and credit == 1900.0
+    return {
+        "pass": passed,
+        "score": 1.0 if passed else 0.0,
+        "feedback": f"variant B status={status!r}, Credit Applied={credit}",
+    }
+'''
 
 
 def _decode_ascii85_flate_stream(pdf: bytes) -> bytes:
@@ -85,6 +139,35 @@ def _replace_pdf_text(pdf: bytes, old: bytes, new: bytes) -> bytes:
     return _rebuild_xref(pdf)
 
 
+def _rewrite_rubrics(output: Path, *, mode: str, variant: str) -> None:
+    rubrics_path = output / "tests" / "rubrics.json"
+    if not rubrics_path.exists():
+        raise RuntimeError("tests/rubrics.json not found")
+    rubrics = json.loads(rubrics_path.read_text(encoding="utf-8"))
+    by_id = {str(r.get("id")): r for r in rubrics}
+    missing = [rid for rid in (TARGET_EMAIL_RUBRIC_ID, TARGET_LEDGER_RUBRIC_ID) if rid not in by_id]
+    if missing:
+        raise RuntimeError(f"expected S01 rubric ids missing: {missing}")
+
+    if variant == "B":
+        by_id[TARGET_EMAIL_RUBRIC_ID]["rubric_text"] = (
+            "S01 variant B: no CM-38720 dispute email should be sent because the $1,900 credit does not exceed the $1,950 invoice."
+        )
+        by_id[TARGET_EMAIL_RUBRIC_ID]["verifier_code"] = B_EMAIL_VERIFIER
+        by_id[TARGET_LEDGER_RUBRIC_ID]["rubric_text"] = (
+            "S01 variant B: INV-38720 must not remain on DISP-HOLD and Credit Applied must be 1900."
+        )
+        by_id[TARGET_LEDGER_RUBRIC_ID]["verifier_code"] = B_LEDGER_VERIFIER
+
+    if mode == "local":
+        rubrics = [
+            r for r in rubrics
+            if str(r.get("id")) in {TARGET_EMAIL_RUBRIC_ID, TARGET_LEDGER_RUBRIC_ID}
+        ]
+
+    rubrics_path.write_text(json.dumps(rubrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 def materialize(source_task_dir: str | Path, output_dir: str | Path, *, mode: str, variant: str) -> None:
     source = Path(source_task_dir)
     output = Path(output_dir)
@@ -126,6 +209,7 @@ def materialize(source_task_dir: str | Path, output_dir: str | Path, *, mode: st
         pdf_attachment["content_base64"] = base64.b64encode(pdf).decode()
 
     inbox_path.write_text(json.dumps(inbox, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _rewrite_rubrics(output, mode=mode, variant=variant)
 
 
 def _main() -> int:
