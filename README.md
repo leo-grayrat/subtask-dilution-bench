@@ -40,7 +40,7 @@
 
 - [x] 将三个方向分别整理成独立实验设计，避免为了统一故事而共享指标或强行耦合。
 - [ ] 子任务稀释：从候选 benchmark 抽真实复杂任务，按 direct / sham / reconsider 做小规模 checkpoint-fork pilot。
-- [ ] 显著反馈导致资源失衡：从可控制连续反馈的真实任务中做“反馈显著性 × 局部实际价值”pilot，记录局部投入和全局机会成本。
+- [ ] 显著反馈导致资源失衡：从有两个真实竞争目标的任务中，分别做“同一信息的呈现显著性”和“连续在线/批量延后反馈”两个 2×2 模块；v0 使用真正进入评分器的受控价值权重，记录局部投入和全局机会成本。
 - [ ] 上下文不参与决策：v0 已冻结 S01、S02、S04、S07、S08、S09、S10 共 7 个母任务；Local/Full 的 A/B 生成、评分和匿名打包已经完成，Recall、Applicability、独立隔离验证和正式重复运行尚未完成。当前不再扩题，也还没有真实模型研究结果。
 - [ ] 三个方向都先做小规模 pilot；没有稳定信号的方向及时停止，不先扩成大题库。
 
@@ -48,6 +48,8 @@
 
 - [`docs/research-ledger.md`](docs/research-ledger.md)：跨版本研究总账，固定三条研究线、不得静默推翻的原则、现有成果位置和证据边界。任何新搜索、扩题或实现先对照这里。
 - [`docs/superpowers/specs/2026-08-24-integrated-benchmark-program-design.md`](docs/superpowers/specs/2026-08-24-integrated-benchmark-program-design.md)：三条实验线的综合结构、推进顺序和共同测试前门槛。
+- [`docs/experiment-records.md`](docs/experiment-records.md)：三条线共用的批次、母任务、运行、产物、评分、匿名、版本和重跑记录格式；只统一记录，不建立共同总分。
+- [`docs/pre-test-readiness.md`](docs/pre-test-readiness.md)：逐项说明三条线目前已经完成什么、正式模型实验前还缺什么。
 - [`docs/subtask-dilution/design.md`](docs/subtask-dilution/design.md)：子任务稀释的当前实验设计。
 - [`docs/subtask-dilution/source-selection.md`](docs/subtask-dilution/source-selection.md)：子任务稀释的素材筛选与参考 benchmark。
 - [`docs/feedback-allocation/design.md`](docs/feedback-allocation/design.md)：显著反馈导致资源失衡的实验设计。
