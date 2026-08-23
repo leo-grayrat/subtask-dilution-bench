@@ -41,6 +41,22 @@ SYNTHETIC_CASES = {
     }
 }
 
+FROZEN_POLICY_SOURCES = {
+    "S01": ("finance_meridian_partners_158b9045", "SOP-FIN-AP-004.docx"),
+    "S02": ("insurance_vanguard_shield_mutual_9b2f7a29", "SOP_VanguardShield.html"),
+    "S04": ("medical_careig_specialty_pharmacy_f5947c33", "CareIG_SOP_v5.0.html"),
+    "S07": (
+        "insurance_vanguard_shield_mutual_82da8d17",
+        "Vanguard_Shield_Core_Operations_SOP.html",
+    ),
+    "S08": ("finance_meridian_partners_a0895480", "Meridian Partners SOP.html"),
+    "S09": ("finance_sunshine_set_d9d532c1", "Sunshine_Set_Automotive_SOP.pdf"),
+    "S10": (
+        "insurance_vanguard_shield_mutual_89007056",
+        "Vanguard_Shield_Core_Operations_SOP.pdf",
+    ),
+}
+
 
 class ContextDiagnosticTaskTests(unittest.TestCase):
     def test_builder_creates_one_policy_task_and_two_state_tasks(self):
@@ -163,6 +179,32 @@ class ContextDiagnosticTaskTests(unittest.TestCase):
                         result["checks"],
                         {"action": True, "supporting_fact_ids": True, "reasoning": True},
                     )
+
+    def test_default_registry_builds_three_tasks_for_each_frozen_mother_task(self):
+        from benchmarks.context_integration.diagnostics import build_diagnostic_tasks
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            for source_task, policy_name in FROZEN_POLICY_SOURCES.values():
+                policy = (
+                    root
+                    / "handbook/tasks"
+                    / source_task
+                    / "environment/initial_workspace"
+                    / policy_name
+                )
+                policy.parent.mkdir(parents=True)
+                policy.write_text(f"Policy source: {policy_name}\n", encoding="utf-8")
+
+            tasks = build_diagnostic_tasks(root / "handbook", root / "generated")
+
+            expected = {
+                f"{case_id}:{condition}"
+                for case_id in FROZEN_POLICY_SOURCES
+                for condition in ("policy", "state_A", "state_B")
+            }
+            self.assertEqual(set(tasks), expected)
+            self.assertEqual(len(tasks), 21)
 
 
 if __name__ == "__main__":

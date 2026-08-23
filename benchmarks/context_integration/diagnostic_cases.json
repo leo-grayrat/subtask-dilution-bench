@@ -1,0 +1,255 @@
+{
+  "S01": {
+    "source_task": "finance_meridian_partners_158b9045",
+    "subject": "whether a vendor credit memo follows dispute or normal credit processing",
+    "policy_files": ["SOP-FIN-AP-004.docx"],
+    "rule": {
+      "text": "Match the credit memo to its referenced invoice. If the credit amount exceeds the original invoice amount, place it on dispute hold and request clarification. Otherwise continue normal credit processing and apply the credit.",
+      "condition_options": [
+        "credit_amount_gt_invoice_amount",
+        "credit_amount_lt_invoice_amount",
+        "credit_amount_eq_invoice_amount"
+      ],
+      "condition": "credit_amount_gt_invoice_amount",
+      "action_options": ["dispute", "normal_credit"],
+      "when_true": "dispute",
+      "when_false": "normal_credit"
+    },
+    "states": {
+      "A": {
+        "facts": [
+          {"id": "F1", "text": "Referenced invoice amount: $1,950."},
+          {"id": "F2", "text": "Credit memo amount: $2,000."}
+        ],
+        "expected_action": "dispute",
+        "supporting_fact_ids": ["F1", "F2"]
+      },
+      "B": {
+        "facts": [
+          {"id": "F1", "text": "Referenced invoice amount: $1,950."},
+          {"id": "F2", "text": "Credit memo amount: $1,900."}
+        ],
+        "expected_action": "normal_credit",
+        "supporting_fact_ids": ["F1", "F2"]
+      }
+    }
+  },
+  "S02": {
+    "source_task": "insurance_vanguard_shield_mutual_9b2f7a29",
+    "subject": "whether an over-$5,000 suspense item may be cleared or must enter exception handling",
+    "policy_files": ["SOP_VanguardShield.html"],
+    "rule": {
+      "text": "For suspense items over $5,000, verify valid manager approval evidence before clearing and posting. If the required approval is missing or invalid, use the finance exception path instead of clearing the item.",
+      "condition_options": [
+        "amount_over_5000_and_valid_manager_approval_present",
+        "amount_over_5000_and_any_approval_present",
+        "amount_under_or_equal_5000"
+      ],
+      "condition": "amount_over_5000_and_valid_manager_approval_present",
+      "action_options": ["clear_and_post", "exception"],
+      "when_true": "clear_and_post",
+      "when_false": "exception"
+    },
+    "states": {
+      "A": {
+        "facts": [
+          {"id": "F1", "text": "Suspense item amount: $7,500."},
+          {"id": "F2", "text": "The support document and target GL code are available."},
+          {"id": "F3", "text": "The approval message was posted by a Junior Operations Analyst, not a manager."}
+        ],
+        "expected_action": "exception",
+        "supporting_fact_ids": ["F1", "F3"]
+      },
+      "B": {
+        "facts": [
+          {"id": "F1", "text": "Suspense item amount: $7,500."},
+          {"id": "F2", "text": "The support document and target GL code are available."},
+          {"id": "F3", "text": "The approval message was posted by the Finance Manager."}
+        ],
+        "expected_action": "clear_and_post",
+        "supporting_fact_ids": ["F1", "F3"]
+      }
+    }
+  },
+  "S04": {
+    "source_task": "medical_careig_specialty_pharmacy_f5947c33",
+    "subject": "whether to send the consent form or use the unreachable-patient path",
+    "policy_files": ["CareIG_SOP_v5.0.html"],
+    "rule": {
+      "text": "If the contact log has three entries and none is Reached, use the unreachable-patient notification path and do not proceed. When the patient is reached, explain the consent requirement, send the consent form, and set Consent_Status to Form Sent.",
+      "condition_options": [
+        "any_contact_attempt_reached",
+        "three_contact_entries_exist",
+        "all_contact_attempts_reached"
+      ],
+      "condition": "any_contact_attempt_reached",
+      "action_options": ["send_consent_form", "unreachable_path"],
+      "when_true": "send_consent_form",
+      "when_false": "unreachable_path"
+    },
+    "states": {
+      "A": {
+        "facts": [
+          {"id": "F1", "text": "The contact log contains exactly three attempts."},
+          {"id": "F2", "text": "The three outcomes are No Answer, Voicemail, and Voicemail; none is Reached."}
+        ],
+        "expected_action": "unreachable_path",
+        "supporting_fact_ids": ["F1", "F2"]
+      },
+      "B": {
+        "facts": [
+          {"id": "F1", "text": "The contact log contains exactly three attempts."},
+          {"id": "F2", "text": "The three outcomes are No Answer, Voicemail, and Reached."}
+        ],
+        "expected_action": "send_consent_form",
+        "supporting_fact_ids": ["F1", "F2"]
+      }
+    }
+  },
+  "S07": {
+    "source_task": "insurance_vanguard_shield_mutual_82da8d17",
+    "subject": "how to allocate a life benefit when a primary beneficiary may have died before the insured",
+    "policy_files": ["Vanguard_Shield_Core_Operations_SOP.html"],
+    "rule": {
+      "text": "Assume primary beneficiaries survive unless a death certificate or court declaration confirms otherwise. Exclude a confirmed deceased primary and redistribute that share pro rata among surviving primaries. Use contingent beneficiaries only if no primary beneficiaries survive.",
+      "condition_options": [
+        "primary_beneficiary_confirmed_deceased",
+        "contingent_beneficiary_exists",
+        "any_beneficiary_named"
+      ],
+      "condition": "primary_beneficiary_confirmed_deceased",
+      "action_options": [
+        "exclude_and_redistribute_pro_rata",
+        "keep_original_primary_split"
+      ],
+      "when_true": "exclude_and_redistribute_pro_rata",
+      "when_false": "keep_original_primary_split"
+    },
+    "states": {
+      "A": {
+        "facts": [
+          {"id": "F1", "text": "The policy names Linda at 45%, Mark at 35%, and Susan at 20% as primary beneficiaries; George is contingent."},
+          {"id": "F2", "text": "An attached death certificate confirms that Linda died before the insured."}
+        ],
+        "expected_action": "exclude_and_redistribute_pro_rata",
+        "supporting_fact_ids": ["F1", "F2"]
+      },
+      "B": {
+        "facts": [
+          {"id": "F1", "text": "The policy names Linda at 45%, Mark at 35%, and Susan at 20% as primary beneficiaries; George is contingent."},
+          {"id": "F2", "text": "No death certificate or court declaration identifies any primary beneficiary as deceased."}
+        ],
+        "expected_action": "keep_original_primary_split",
+        "supporting_fact_ids": ["F1", "F2"]
+      }
+    }
+  },
+  "S08": {
+    "source_task": "finance_meridian_partners_a0895480",
+    "subject": "whether a recurring invoice can proceed under its supporting agreement",
+    "policy_files": ["Meridian Partners SOP.html"],
+    "rule": {
+      "text": "Verify that the recurring agreement has not expired. If it is expired, stop processing, place the invoice on APPR hold, and ask the approving manager for renewal or confirmation. If it is active and the invoice is within tolerance, approve it without additional approval.",
+      "condition_options": [
+        "recurring_agreement_expired",
+        "recurring_invoice_within_tolerance",
+        "vendor_credit_available"
+      ],
+      "condition": "recurring_agreement_expired",
+      "action_options": ["hold_and_request_renewal", "approve_and_queue_payment"],
+      "when_true": "hold_and_request_renewal",
+      "when_false": "approve_and_queue_payment"
+    },
+    "states": {
+      "A": {
+        "facts": [
+          {"id": "F1", "text": "The invoice matches recurring agreement RA-2026-001 and is within its amount tolerance."},
+          {"id": "F2", "text": "RA-2026-001 has expiration date 2026-03-31 and status Expired."}
+        ],
+        "expected_action": "hold_and_request_renewal",
+        "supporting_fact_ids": ["F1", "F2"]
+      },
+      "B": {
+        "facts": [
+          {"id": "F1", "text": "The invoice matches recurring agreement RA-2026-001 and is within its amount tolerance."},
+          {"id": "F2", "text": "RA-2026-001 has expiration date 2027-03-31 and status Active."}
+        ],
+        "expected_action": "approve_and_queue_payment",
+        "supporting_fact_ids": ["F1", "F2"]
+      }
+    }
+  },
+  "S09": {
+    "source_task": "finance_sunshine_set_d9d532c1",
+    "subject": "whether a vehicle deal belongs in the commission payment submission",
+    "policy_files": ["Sunshine_Set_Automotive_SOP.pdf"],
+    "rule": {
+      "text": "Before commission payment, verify that the deal remains posted and funded. Exclude a reversed or unwound deal and notify the responsible manager; include a deal that remains posted and funded.",
+      "condition_options": [
+        "deal_reversed_or_unwound",
+        "commission_amount_present",
+        "vehicle_delivered"
+      ],
+      "condition": "deal_reversed_or_unwound",
+      "action_options": ["exclude_commission_and_notify", "include_commission"],
+      "when_true": "exclude_commission_and_notify",
+      "when_false": "include_commission"
+    },
+    "states": {
+      "A": {
+        "facts": [
+          {"id": "F1", "text": "Deal 4505 has Funding Status Rejected, Title Status Incomplete, and notes stating that the deal was unwound."},
+          {"id": "F2", "text": "Current email and Slack records both report the unwind."}
+        ],
+        "expected_action": "exclude_commission_and_notify",
+        "supporting_fact_ids": ["F1", "F2"]
+      },
+      "B": {
+        "facts": [
+          {"id": "F1", "text": "Deal 4505 has Funding Status Funded, Title Status Complete, and remains posted."},
+          {"id": "F2", "text": "Current email and Slack records both confirm completed funding and normal commission processing."}
+        ],
+        "expected_action": "include_commission",
+        "supporting_fact_ids": ["F1", "F2"]
+      }
+    }
+  },
+  "S10": {
+    "source_task": "insurance_vanguard_shield_mutual_89007056",
+    "subject": "whether an employee merchandise expense is supported by the approved internal store",
+    "policy_files": ["Vanguard_Shield_Core_Operations_SOP.pdf"],
+    "rule": {
+      "text": "For merchandise expense lines, search the internal store for a matching employee order. A matching paid and fulfilled order supports the line; without one, treat the purchase as an unauthorized vendor expense requiring personal reimbursement.",
+      "condition_options": [
+        "matching_paid_fulfilled_internal_store_order_exists",
+        "employee_name_appears_in_expense_report",
+        "merchandise_amount_under_500"
+      ],
+      "condition": "matching_paid_fulfilled_internal_store_order_exists",
+      "action_options": [
+        "mark_supported",
+        "unauthorized_vendor_personal_reimbursement"
+      ],
+      "when_true": "mark_supported",
+      "when_false": "unauthorized_vendor_personal_reimbursement"
+    },
+    "states": {
+      "A": {
+        "facts": [
+          {"id": "F1", "text": "Derek Washington submitted a $420 polo merchandise expense."},
+          {"id": "F2", "text": "The internal store contains no matching order for Derek Washington."}
+        ],
+        "expected_action": "unauthorized_vendor_personal_reimbursement",
+        "supporting_fact_ids": ["F1", "F2"]
+      },
+      "B": {
+        "facts": [
+          {"id": "F1", "text": "Derek Washington submitted a $420 polo merchandise expense."},
+          {"id": "F2", "text": "The internal store contains a matching $420 order for Derek Washington with status Paid and Fulfilled."}
+        ],
+        "expected_action": "mark_supported",
+        "supporting_fact_ids": ["F1", "F2"]
+      }
+    }
+  }
+}

@@ -10,6 +10,11 @@ SYSTEM_TEXT = (
     "You are an operations analyst. Read the work order and the supplied materials, "
     "then create the requested answer file.\n"
 )
+REGISTRY_PATH = Path(__file__).with_name("diagnostic_cases.json")
+
+
+def load_diagnostic_cases(path: str | Path = REGISTRY_PATH) -> dict[str, dict]:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 def _reset_directory(path: Path) -> None:
@@ -68,10 +73,12 @@ def build_diagnostic_tasks(
     handbook_dir: str | Path,
     output_root: str | Path,
     *,
-    cases: Mapping[str, Mapping],
+    cases: Mapping[str, Mapping] | None = None,
 ) -> dict[str, Path]:
     handbook = Path(handbook_dir)
     output = Path(output_root)
+    if cases is None:
+        cases = load_diagnostic_cases()
     tasks: dict[str, Path] = {}
 
     for case_id, case in cases.items():
