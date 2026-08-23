@@ -8,10 +8,11 @@ from pathlib import Path
 from benchmarks.context_integration.s01_credit_memo.materialize import materialize, _decode_ascii85_flate_stream
 
 
-def _pdf_with_text(text: str) -> bytes:
+def _pdf_with_text(text: str, *, newline_before_endstream: bool = True) -> bytes:
     raw = f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode()
     encoded = base64.a85encode(zlib.compress(raw), adobe=True)[2:]
-    obj1 = b"1 0 obj\n<< /Length " + str(len(encoded)).encode() + b" /Filter [ /ASCII85Decode /FlateDecode ] >>\nstream\n" + encoded + b"\nendstream\nendobj\n"
+    stream_end = b"\nendstream\n" if newline_before_endstream else b"endstream\n"
+    obj1 = b"1 0 obj\n<< /Length " + str(len(encoded)).encode() + b" /Filter [ /ASCII85Decode /FlateDecode ] >>\nstream\n" + encoded + stream_end + b"endobj\n"
     obj2 = b"2 0 obj\n<< /Type /Catalog >>\nendobj\n"
     prefix = b"%PDF-1.4\n" + obj1 + obj2
     offsets = {int(m.group(1)): m.start() for m in __import__('re').finditer(rb'(?m)^(\d+) 0 obj\b', prefix)}
@@ -85,6 +86,32 @@ class MaterializeS01Tests(unittest.TestCase):
             self.assertEqual(by_id["63"]["body_text"].count("$1,900.00"), 2)
             pdf = base64.b64decode(by_id["63"]["attachments"][0]["content_base64"])
             decoded = _decode_ascii85_flate_stream(pdf)
+            self.assertIn(b"$1,900.00", decoded)
+            self.assertNotIn(b"$2,000.00", decoded)
+
+    def test_variant_b_rewrites_reportlab_stream_without_newline_before_endstream(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            src, out = base / "src", base / "out"
+            _make_source(src)
+            inbox_path = src / "environment/initial_external_services/google_mail/inbox.json"
+            inbox = json.loads(inbox_path.read_text())
+            target = next(e for e in inbox["emails"] if e["email_id"] == "63")
+            pdf = _pdf_with_text(
+                "Credit Memo CM-38720 Amount $2,000.00",
+                newline_before_endstream=False,
+            )
+            target["attachments"][0]["content_base64"] = base64.b64encode(pdf).decode()
+            inbox_path.write_text(json.dumps(inbox, indent=2), encoding="utf-8")
+
+            materialize(src, out, mode="full", variant="B")
+
+            output_inbox = json.loads(
+                (out / "environment/initial_external_services/google_mail/inbox.json").read_text()
+            )
+            output_target = next(e for e in output_inbox["emails"] if e["email_id"] == "63")
+            output_pdf = base64.b64decode(output_target["attachments"][0]["content_base64"])
+            decoded = _decode_ascii85_flate_stream(output_pdf)
             self.assertIn(b"$1,900.00", decoded)
             self.assertNotIn(b"$2,000.00", decoded)
 

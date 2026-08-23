@@ -71,7 +71,7 @@ def verify(workspace_path, external_services_path=None):
 
 
 def _decode_ascii85_flate_stream(pdf: bytes) -> bytes:
-    match = re.search(rb"stream\r?\n(.*?)\r?\nendstream", pdf, re.S)
+    match = re.search(rb"stream\r?\n(.*?)(?:\r?\n)?endstream", pdf, re.S)
     if not match:
         raise RuntimeError("PDF stream not found")
     encoded = match.group(1).strip()
@@ -113,7 +113,7 @@ def _rebuild_xref(pdf: bytes) -> bytes:
 
 
 def _replace_pdf_text(pdf: bytes, old: bytes, new: bytes) -> bytes:
-    stream_match = re.search(rb"stream\r?\n(.*?)\r?\nendstream", pdf, re.S)
+    stream_match = re.search(rb"stream\r?\n(.*?)(?:\r?\n)?endstream", pdf, re.S)
     if not stream_match:
         raise RuntimeError("PDF stream not found")
 

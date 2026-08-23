@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,11 @@ else:
     from benchmarks.context_integration.s01_credit_memo.materialize import materialize
 
 SOURCE_TASK = "finance_meridian_partners_158b9045"
+
+
+def harbor_executable(handbook_dir: str | Path) -> Path:
+    relative = ".venv/Scripts/harbor.exe" if os.name == "nt" else ".venv/bin/harbor"
+    return Path(handbook_dir) / relative
 
 
 def prepare_variants(handbook_dir: str | Path, output_root: str | Path) -> dict[str, Path]:
@@ -31,7 +37,7 @@ def prepare_variants(handbook_dir: str | Path, output_root: str | Path) -> dict[
 def harbor_command(handbook_dir: str | Path, task_dir: str | Path, *, model: str, env_file: str | Path) -> list[str]:
     handbook = Path(handbook_dir)
     return [
-        str(handbook / ".venv" / "bin" / "harbor"),
+        str(harbor_executable(handbook)),
         "run",
         "-p",
         str(Path(task_dir)),
@@ -66,7 +72,7 @@ def _main() -> int:
         parser.error("--model is required unless --prepare-only is used")
 
     env_file = Path(args.env_file).resolve() if args.env_file else handbook / ".env"
-    harbor = handbook / ".venv" / "bin" / "harbor"
+    harbor = harbor_executable(handbook)
     if not harbor.exists():
         raise FileNotFoundError(f"Harbor executable not found: {harbor}")
     if not env_file.exists():

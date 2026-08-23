@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -22,15 +23,17 @@ class S01RunnerTests(unittest.TestCase):
                 self.assertTrue((path / "instruction.md").exists())
                 self.assertTrue((path / "tests/rubrics.json").exists())
 
-    def test_harbor_command_matches_upstream_quick_start_shape(self):
+    def test_harbor_command_matches_current_platform(self):
         handbook = Path("/tmp/handbook")
         task = Path("/tmp/generated/local_A")
-        cmd = harbor_command(handbook, task, model="openai/example", env_file=Path("/tmp/handbook/.env"))
-        self.assertEqual(cmd[0], str(handbook / ".venv/bin/harbor"))
+        env_file = Path("/tmp/handbook/.env")
+        cmd = harbor_command(handbook, task, model="openai/example", env_file=env_file)
+        harbor_path = handbook / (".venv/Scripts/harbor.exe" if os.name == "nt" else ".venv/bin/harbor")
+        self.assertEqual(cmd[0], str(harbor_path))
         self.assertEqual(cmd[1:4], ["run", "-p", str(task)])
         self.assertIn("agent_harness.openhands_agent:OpenHandsAgent", cmd)
         self.assertIn("openai/example", cmd)
-        self.assertEqual(cmd[-2:], ["--env-file", "/tmp/handbook/.env"])
+        self.assertEqual(cmd[-2:], ["--env-file", str(env_file)])
 
     def test_runner_can_be_executed_directly_in_prepare_only_mode(self):
         import subprocess, sys
