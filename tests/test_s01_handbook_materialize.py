@@ -24,6 +24,7 @@ def _pdf_with_text(text: str) -> bytes:
 def _make_source(root: Path):
     (root / "environment/initial_external_services/google_mail").mkdir(parents=True)
     (root / "environment/initial_workspace").mkdir(parents=True)
+    (root / "tests").mkdir(parents=True)
     (root / "instruction.md").write_text("Process all unread emails according to the SOP.\n", encoding="utf-8")
     (root / "environment/initial_workspace/keep.txt").write_text("keep me", encoding="utf-8")
     pdf = _pdf_with_text("Credit Memo CM-38720 Amount $2,000.00")
@@ -36,6 +37,12 @@ def _make_source(root: Path):
         ]
     }
     (root / "environment/initial_external_services/google_mail/inbox.json").write_text(json.dumps(inbox, indent=2), encoding="utf-8")
+    rubrics = [
+        {"id": "background", "sort_order": 0, "rubric_text": "background", "verifier_code": "def verify(workspace_path, external_services_path=None): return {\"pass\": True}"},
+        {"id": "78ef4e7c-fe51-4573-b827-3ce3baea02ea", "sort_order": 3, "rubric_text": "A dispute email", "verifier_code": "ORIGINAL_EMAIL_A"},
+        {"id": "rubric_1775876463672", "sort_order": 13, "rubric_text": "A ledger hold", "verifier_code": "ORIGINAL_LEDGER_A"},
+    ]
+    (root / "tests/rubrics.json").write_text(json.dumps(rubrics, indent=2), encoding="utf-8")
 
 
 class MaterializeS01Tests(unittest.TestCase):
@@ -101,6 +108,36 @@ class MaterializeS01Tests(unittest.TestCase):
             p.write_text(json.dumps(data))
             with self.assertRaises(RuntimeError):
                 materialize(src, out, mode="full", variant="A")
+
+    def test_local_uses_only_target_rubrics_and_full_b_rewrites_only_target_rubrics(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            src = base / "src"
+            _make_source(src)
+
+            local_b = base / "local_b"
+            materialize(src, local_b, mode="local", variant="B")
+            local_rubrics = json.loads((local_b / "tests/rubrics.json").read_text())
+            self.assertEqual(
+                {r["id"] for r in local_rubrics},
+                {"78ef4e7c-fe51-4573-b827-3ce3baea02ea", "rubric_1775876463672"},
+            )
+            self.assertTrue(all("variant B" in r["rubric_text"] for r in local_rubrics))
+
+            full_b = base / "full_b"
+            materialize(src, full_b, mode="full", variant="B")
+            full_rubrics = json.loads((full_b / "tests/rubrics.json").read_text())
+            by_id = {r["id"]: r for r in full_rubrics}
+            self.assertEqual(by_id["background"]["rubric_text"], "background")
+            self.assertEqual(by_id["background"]["verifier_code"], 'def verify(workspace_path, external_services_path=None): return {"pass": True}')
+            self.assertIn("variant B", by_id["78ef4e7c-fe51-4573-b827-3ce3baea02ea"]["rubric_text"])
+            self.assertIn("variant B", by_id["rubric_1775876463672"]["rubric_text"])
+
+            full_a = base / "full_a"
+            materialize(src, full_a, mode="full", variant="A")
+            full_a_rubrics = json.loads((full_a / "tests/rubrics.json").read_text())
+            self.assertEqual(full_a_rubrics[1]["verifier_code"], "ORIGINAL_EMAIL_A")
+            self.assertEqual(full_a_rubrics[2]["verifier_code"], "ORIGINAL_LEDGER_A")
 
     def test_cli_materializes_requested_case(self):
         import subprocess, sys
