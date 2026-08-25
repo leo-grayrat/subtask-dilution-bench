@@ -1,3 +1,4 @@
+import copy
 import json
 import tempfile
 import unittest
@@ -205,6 +206,164 @@ class ContextDiagnosticTaskTests(unittest.TestCase):
             }
             self.assertEqual(set(tasks), expected)
             self.assertEqual(len(tasks), 21)
+
+
+def _good_case() -> dict:
+    """返回一个满足全部四条不变量的合成登记表条目。"""
+    return copy.deepcopy(SYNTHETIC_CASES["X01"])
+
+
+def _build_synthetic_handbook(root: Path, sources) -> None:
+    for source_task, policy_name in sources:
+        policy = (
+            root
+            / "handbook/tasks"
+            / source_task
+            / "environment/initial_workspace"
+            / policy_name
+        )
+        policy.parent.mkdir(parents=True)
+        policy.write_text(f"Policy source: {policy_name}\n", encoding="utf-8")
+
+
+class RegistryInvariantTests(unittest.TestCase):
+    """校验 8e23014 引入的诊断登记表的四条不变量。
+
+    1. 来源文件存在；
+    2. A/B 目标动作互为相反；
+    3. 动作值属于该母任务声明的允许集合（rule.action_options）；
+    4. A/B 之间只翻转单一关键业务事实，不引入第二个阻断条件。
+    """
+
+    def _validate(self, cases, handbook_dir=None):
+        from benchmarks.context_integration.diagnostics import (
+            validate_diagnostic_registry,
+        )
+
+        return validate_diagnostic_registry(cases, handbook_dir=handbook_dir)
+
+    def _issues_for(self, issues, case_id, invariant):
+        return [
+            issue
+            for issue in issues
+            if issue["case"] == case_id and issue["invariant"] == invariant
+        ]
+
+    # ---- 冻结登记表本身应通过全部不变量 ----
+
+    def test_frozen_registry_passes_structure_invariants(self):
+        from benchmarks.context_integration.diagnostics import load_diagnostic_cases
+
+        issues = self._validate(load_diagnostic_cases())
+        self.assertEqual(
+            issues,
+            [],
+            f"冻结登记表违反不变量：{issues}",
+        )
+
+    def test_frozen_registry_source_files_exist_in_synthetic_handbook(self):
+        from benchmarks.context_integration.diagnostics import load_diagnostic_cases
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _build_synthetic_handbook(root, FROZEN_POLICY_SOURCES.values())
+            issues = self._validate(
+                load_diagnostic_cases(), handbook_dir=root / "handbook"
+            )
+            self.assertEqual(issues, [])
+
+    # ---- 不变量 1：来源文件存在 ----
+
+    def test_missing_source_file_is_reported(self):
+        case = _good_case()
+        case["policy_files"] = ["Policy.txt", "Missing_Addendum.txt"]
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _build_synthetic_handbook(root, [("synthetic_source", "Policy.txt")])
+            issues = self._validate({"X01": case}, handbook_dir=root / "handbook")
+
+        self.assertEqual(len(self._issues_for(issues, "X01", "source_files")), 1)
+        self.assertIn("Missing_Addendum.txt", issues[0]["message"])
+
+    # ---- 不变量 2：A/B 动作相反 ----
+
+    def test_identical_ab_actions_are_reported(self):
+        case = _good_case()
+        case["states"]["B"]["expected_action"] = "dispute"
+        issues = self._validate({"X01": case})
+        self.assertEqual(len(self._issues_for(issues, "X01", "action_flip")), 1)
+
+    def test_ab_actions_must_cover_both_allowed_options(self):
+        case = _good_case()
+        case["rule"]["action_options"] = ["dispute", "normal_credit", "escalate"]
+        issues = self._validate({"X01": case})
+        self.assertGreaterEqual(
+            len(self._issues_for(issues, "X01", "action_flip")), 1
+        )
+
+    # ---- 不变量 3：动作属于允许集合 ----
+
+    def test_state_action_outside_allowed_set_is_reported(self):
+        case = _good_case()
+        case["states"]["A"]["expected_action"] = "escalate"
+        issues = self._validate({"X01": case})
+        self.assertGreaterEqual(
+            len(self._issues_for(issues, "X01", "allowed_actions")), 1
+        )
+
+    def test_rule_action_outside_allowed_set_is_reported(self):
+        case = _good_case()
+        case["rule"]["when_false"] = "ask_manager"
+        issues = self._validate({"X01": case})
+        self.assertGreaterEqual(
+            len(self._issues_for(issues, "X01", "allowed_actions")), 1
+        )
+
+    # ---- 不变量 4：只翻转单一关键业务事实 ----
+
+    def test_silent_change_of_non_supporting_fact_is_reported(self):
+        case = _good_case()
+        # 第二个事实 F1 在 B 中被顺便改掉，且未声明为支撑事实，
+        # 可能引入第二个独立阻断条件。
+        case["states"]["A"]["supporting_fact_ids"] = ["F2"]
+        case["states"]["B"]["supporting_fact_ids"] = ["F2"]
+        case["states"]["B"]["facts"][0]["text"] = "Invoice amount: 2,500."
+        issues = self._validate({"X01": case})
+        self.assertGreaterEqual(
+            len(self._issues_for(issues, "X01", "single_flipped_fact")), 1
+        )
+
+    def test_extra_fact_in_one_state_is_reported(self):
+        case = _good_case()
+        case["states"]["B"]["facts"].append(
+            {"id": "F3", "text": "The customer account is suspended."}
+        )
+        issues = self._validate({"X01": case})
+        self.assertGreaterEqual(
+            len(self._issues_for(issues, "X01", "single_flipped_fact")), 1
+        )
+
+    def test_no_flipped_fact_is_reported(self):
+        case = _good_case()
+        # A/B 事实完全相同，却声称动作应翻转，说明翻转事实缺失。
+        case["states"]["B"]["facts"] = copy.deepcopy(case["states"]["A"]["facts"])
+        issues = self._validate({"X01": case})
+        self.assertGreaterEqual(
+            len(self._issues_for(issues, "X01", "single_flipped_fact")), 1
+        )
+
+    def test_declared_duplicate_representations_of_one_fact_pass(self):
+        # 设计允许同一关键事实的多个重复表示同步修改（design.md 第 4 节），
+        # 只要所有被修改的事实都被声明为支撑事实。
+        case = _good_case()
+        case["states"]["B"]["facts"][0]["text"] = (
+            "Invoice amount: 1,950, confirmed again by the billing ledger."
+        )
+        issues = self._validate({"X01": case})
+        self.assertEqual(
+            self._issues_for(issues, "X01", "single_flipped_fact"), []
+        )
 
 
 if __name__ == "__main__":

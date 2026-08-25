@@ -17,6 +17,138 @@ def load_diagnostic_cases(path: str | Path = REGISTRY_PATH) -> dict[str, dict]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def validate_diagnostic_registry(
+    cases: Mapping[str, Mapping] | None = None,
+    *,
+    handbook_dir: str | Path | None = None,
+) -> list[dict]:
+    """校验诊断登记表的四条不变量，返回违规列表，空列表表示全部通过。
+
+    四条不变量（见 HANDOFF-2026-08-25.md 与 docs/context-integration/design.md 第 4 节）：
+    1. ``source_files``：登记表引用的每个来源文件在 HANDBOOK 工作区内真实存在；
+    2. ``action_flip``：A/B 目标动作互为相反，且正好覆盖两个允许动作；
+    3. ``allowed_actions``：``when_true`` / ``when_false`` / ``expected_action``
+       均属于该母任务声明的允许集合 ``rule.action_options``；
+    4. ``single_flipped_fact``：A/B 使用同一组事实编号，未翻转事实逐字一致，
+       至少翻转一个事实，且每个被翻转的事实都声明为支撑事实。
+       设计允许同一关键业务事实的多个重复表示同步修改，机械校验无法判定
+       多个翻转事实是否属于同一业务事实，逐题语义复核仍需人工完成。
+
+    不传 ``handbook_dir`` 时不检查第 1 条，因为来源文件位于外部 HANDBOOK 仓库。
+    """
+    if cases is None:
+        cases = load_diagnostic_cases()
+    issues: list[dict] = []
+
+    def add(case_id: str, invariant: str, message: str) -> None:
+        issues.append({"case": case_id, "invariant": invariant, "message": message})
+
+    handbook = Path(handbook_dir) if handbook_dir is not None else None
+
+    for case_id, case in cases.items():
+        rule = case.get("rule", {})
+        states = case.get("states", {})
+
+        # 不变量 1：来源文件存在。
+        if handbook is not None:
+            workspace = (
+                handbook
+                / "tasks"
+                / str(case.get("source_task", ""))
+                / "environment"
+                / "initial_workspace"
+            )
+            for filename in case.get("policy_files", []):
+                source = workspace / str(filename)
+                if not source.is_file():
+                    add(case_id, "source_files", f"missing source file: {source}")
+
+        # 不变量 3：动作属于该母任务声明的允许集合。
+        options = list(rule.get("action_options", []))
+        allowed = set(options)
+        for field in ("when_true", "when_false"):
+            value = rule.get(field)
+            if value not in allowed:
+                add(
+                    case_id,
+                    "allowed_actions",
+                    f"rule.{field}={value!r} is not in action_options {sorted(allowed)!r}",
+                )
+        for state_id, state in states.items():
+            value = state.get("expected_action")
+            if value not in allowed:
+                add(
+                    case_id,
+                    "allowed_actions",
+                    f"states.{state_id}.expected_action={value!r} "
+                    f"is not in action_options {sorted(allowed)!r}",
+                )
+
+        # 不变量 2：A/B 动作真正翻转。
+        if len(options) != 2 or len(allowed) != 2:
+            add(
+                case_id,
+                "action_flip",
+                f"action_options must list exactly two distinct actions, got {options!r}",
+            )
+        if rule.get("when_true") == rule.get("when_false"):
+            add(case_id, "action_flip", "when_true and when_false must be opposite actions")
+        if set(states) != {"A", "B"}:
+            add(case_id, "action_flip", f"states must be exactly A and B, got {sorted(states)!r}")
+            continue
+        action_a = states["A"].get("expected_action")
+        action_b = states["B"].get("expected_action")
+        if action_a == action_b:
+            add(
+                case_id,
+                "action_flip",
+                f"states A and B share the same expected action {action_a!r}; "
+                "the correct action must flip",
+            )
+        elif set(states) == {"A", "B"} and len(allowed) == 2 and {action_a, action_b} != allowed:
+            add(
+                case_id,
+                "action_flip",
+                f"A/B actions {{{action_a!r}, {action_b!r}}} do not cover "
+                f"both allowed actions {sorted(allowed)!r}",
+            )
+
+        # 不变量 4：只翻转单一关键业务事实。
+        facts_a = {fact["id"]: fact["text"] for fact in states["A"].get("facts", [])}
+        facts_b = {fact["id"]: fact["text"] for fact in states["B"].get("facts", [])}
+        if set(facts_a) != set(facts_b):
+            only_a = sorted(set(facts_a) - set(facts_b))
+            only_b = sorted(set(facts_b) - set(facts_a))
+            add(
+                case_id,
+                "single_flipped_fact",
+                f"fact id sets differ between A and B; only in A: {only_a}, only in B: {only_b}",
+            )
+            continue
+        changed = [fid for fid in facts_a if facts_a[fid] != facts_b[fid]]
+        if not changed:
+            add(case_id, "single_flipped_fact", "no fact is flipped between states A and B")
+        for state_id in ("A", "B"):
+            supporting = set(states[state_id].get("supporting_fact_ids", []))
+            unknown = sorted(supporting - set(facts_a))
+            if unknown:
+                add(
+                    case_id,
+                    "single_flipped_fact",
+                    f"state {state_id} supporting_fact_ids reference unknown facts {unknown}",
+                )
+            undeclared = [fid for fid in changed if fid not in supporting]
+            if undeclared:
+                add(
+                    case_id,
+                    "single_flipped_fact",
+                    f"state {state_id}: flipped facts {undeclared} are not declared "
+                    "as supporting facts; a second fact may have changed silently",
+                )
+
+    return issues
+
+
 def _reset_directory(path: Path) -> None:
     if path.exists():
         shutil.rmtree(path)
