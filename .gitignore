@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache*/
 .pytest_tmp*/
+.tmp-pytest/
 
 # Local generated task packages and release checks
 experiments/*-build-check/
