@@ -1,6 +1,7 @@
 import copy
 import hashlib
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -509,6 +510,244 @@ class RecallIntegrityTests(unittest.TestCase):
             _build_synthetic_handbook(root, [("synthetic_source", "Policy.txt")])
             with mock.patch.object(
                 diagnostics.shutil, "copy2", side_effect=corrupting_copy
+            ):
+                with self.assertRaises(RuntimeError):
+                    diagnostics.build_diagnostic_tasks(
+                        root / "handbook",
+                        root / "generated",
+                        cases=SYNTHETIC_CASES,
+                    )
+
+
+class ApplicabilityPairConsistencyTests(unittest.TestCase):
+    """校验 Applicability A/B 任务包除状态事实外完全一致。
+
+    Applicability 包（``{case_id}_state_A`` / ``{case_id}_state_B``）是同一母任务的
+    两个镜像状态（design.md 第 4 节：只允许翻转一个关键业务事实）。除 STATE.md 中
+    被翻转事实的文本行外，规则文本（POLICY.md）、工单措辞与动作选项顺序
+    （WORK_ORDER.md）、系统提示（SYSTEM.md）、事实呈现顺序和任何其他文件都不得
+    有差异，否则模型可能靠无关线索而不是规则推理作答。
+    """
+
+    def _verify(self, output_root, cases=None):
+        from benchmarks.context_integration.diagnostics import (
+            verify_applicability_pair_consistency,
+        )
+
+        return verify_applicability_pair_consistency(output_root, cases=cases)
+
+    def _issues_for(self, issues, case_id, invariant):
+        return [
+            issue
+            for issue in issues
+            if issue["case"] == case_id and issue["invariant"] == invariant
+        ]
+
+    def _build_synthetic_packages(self, root: Path) -> Path:
+        from benchmarks.context_integration.diagnostics import build_diagnostic_tasks
+
+        _build_synthetic_handbook(root, [("synthetic_source", "Policy.txt")])
+        build_diagnostic_tasks(
+            root / "handbook", root / "generated", cases=SYNTHETIC_CASES
+        )
+        return root / "generated"
+
+    def _rewrite_file(self, path: Path, transform) -> None:
+        path.write_text(transform(path.read_text(encoding="utf-8")), encoding="utf-8")
+
+    # ---- 冻结母任务与合成案例：差异只出现在状态事实时必须通过 ----
+
+    def test_frozen_applicability_pairs_are_identical_outside_state_facts(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _build_synthetic_handbook(root, FROZEN_POLICY_SOURCES.values())
+            from benchmarks.context_integration.diagnostics import (
+                build_diagnostic_tasks,
+            )
+
+            build_diagnostic_tasks(root / "handbook", root / "generated")
+
+            issues = self._verify(root / "generated")
+            self.assertEqual(
+                issues, [], f"冻结母任务的 Applicability A/B 包不一致：{issues}"
+            )
+
+    def test_differences_limited_to_flipped_fact_pass_without_false_positives(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            generated = self._build_synthetic_packages(root)
+
+            # 未触碰时通过。
+            self.assertEqual(
+                self._verify(generated, cases=SYNTHETIC_CASES), []
+            )
+
+            # 把 B 包被翻转事实 F2 改成另一个仍然不同的值，差异仍只在
+            # 状态事实载体内，校验不得误报。
+            self._rewrite_file(
+                generated / "X01_state_B/STATE.md",
+                lambda text: text.replace(
+                    "- [F2] Credit amount: 1,900.",
+                    "- [F2] Credit amount: 1,800.",
+                ),
+            )
+            issues = self._verify(generated, cases=SYNTHETIC_CASES)
+            self.assertEqual(
+                issues, [], f"仅状态事实内的差异被误报为违规：{issues}"
+            )
+
+    # ---- 非状态事实字段被改动必须被抓到 ----
+
+    def test_changed_rule_text_is_reported(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            generated = self._build_synthetic_packages(root)
+            self._rewrite_file(
+                generated / "X01_state_B/POLICY.md",
+                lambda text: text + "Always prefer the dispute route.\n",
+            )
+
+            issues = self._verify(generated, cases=SYNTHETIC_CASES)
+
+        content_issues = self._issues_for(issues, "X01", "applicability_pair_content")
+        self.assertEqual(len(content_issues), 1)
+        self.assertIn("POLICY.md", content_issues[0]["message"])
+
+    def test_changed_wording_or_action_option_order_is_reported(self):
+        tamperings = {
+            "wording": lambda text: text.replace(
+                "decide the correct action", "quickly guess the action"
+            ),
+            "action_option_order": lambda text: text.replace(
+                "`dispute`, `normal_credit`", "`normal_credit`, `dispute`"
+            ),
+        }
+        for kind, tamper in tamperings.items():
+            with self.subTest(kind=kind):
+                with tempfile.TemporaryDirectory() as td:
+                    root = Path(td)
+                    generated = self._build_synthetic_packages(root)
+                    self._rewrite_file(
+                        generated / "X01_state_B/WORK_ORDER.md", tamper
+                    )
+
+                    issues = self._verify(generated, cases=SYNTHETIC_CASES)
+
+                self.assertGreaterEqual(
+                    len(self._issues_for(issues, "X01", "applicability_pair_content")),
+                    1,
+                    f"{kind} 场景未被抓到：{issues}",
+                )
+
+    def test_changed_system_prompt_is_reported(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            generated = self._build_synthetic_packages(root)
+            self._rewrite_file(
+                generated / "X01_state_A/SYSTEM.md",
+                lambda text: text + "Prefer shorter answers.\n",
+            )
+
+            issues = self._verify(generated, cases=SYNTHETIC_CASES)
+
+        self.assertGreaterEqual(
+            len(self._issues_for(issues, "X01", "applicability_pair_content")), 1
+        )
+
+    def test_extra_or_missing_package_file_is_reported(self):
+        scenarios = {
+            "extra_file_in_B": lambda generated: (
+                generated / "X01_state_B/HINT.md"
+            ).write_text("The answer is normal_credit.\n", encoding="utf-8"),
+            "missing_file_in_A": lambda generated: (
+                generated / "X01_state_A/POLICY.md"
+            ).unlink(),
+            "missing_package_directory": lambda generated: shutil.rmtree(
+                generated / "X01_state_B"
+            ),
+        }
+        for kind, tamper in scenarios.items():
+            with self.subTest(kind=kind):
+                with tempfile.TemporaryDirectory() as td:
+                    root = Path(td)
+                    generated = self._build_synthetic_packages(root)
+                    tamper(generated)
+
+                    issues = self._verify(generated, cases=SYNTHETIC_CASES)
+
+                self.assertGreaterEqual(
+                    len(self._issues_for(issues, "X01", "applicability_pair_files")),
+                    1,
+                    f"{kind} 场景未被抓到：{issues}",
+                )
+
+    def test_state_changes_outside_flipped_fact_are_reported(self):
+        tamperings = {
+            "header_rewording": lambda text: text.replace(
+                "# Current state", "# Current situation"
+            ),
+            "fact_order_swapped": lambda text: (
+                "# Current state\n\n"
+                "- [F2] Credit amount: 1,900.\n"
+                "- [F1] Invoice amount: 1,950.\n"
+            ),
+            "extra_fact_line": lambda text: text + "- [F3] The account is suspended.\n",
+            "non_flipped_fact_changed": lambda text: text.replace(
+                "- [F1] Invoice amount: 1,950.",
+                "- [F1] Invoice amount: 2,500.",
+            ),
+        }
+        for kind, tamper in tamperings.items():
+            with self.subTest(kind=kind):
+                with tempfile.TemporaryDirectory() as td:
+                    root = Path(td)
+                    generated = self._build_synthetic_packages(root)
+                    self._rewrite_file(
+                        generated / "X01_state_B/STATE.md", tamper
+                    )
+
+                    issues = self._verify(generated, cases=SYNTHETIC_CASES)
+
+                self.assertGreaterEqual(
+                    len(self._issues_for(issues, "X01", "applicability_pair_state")),
+                    1,
+                    f"{kind} 场景未被抓到：{issues}",
+                )
+
+    def test_removed_flip_is_reported(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            generated = self._build_synthetic_packages(root)
+            # 把 B 包被翻转事实改成与 A 相同，翻转消失，B 包不再是另一个状态。
+            self._rewrite_file(
+                generated / "X01_state_B/STATE.md",
+                lambda text: text.replace(
+                    "- [F2] Credit amount: 1,900.",
+                    "- [F2] Credit amount: 2,000.",
+                ),
+            )
+
+            issues = self._verify(generated, cases=SYNTHETIC_CASES)
+
+        self.assertGreaterEqual(
+            len(self._issues_for(issues, "X01", "applicability_pair_state")), 1
+        )
+
+    def test_builder_rejects_generator_divergence_between_states(self):
+        from benchmarks.context_integration import diagnostics
+
+        original = diagnostics._state_work_order
+        counter = {"n": 0}
+
+        def diverging_work_order(case):
+            counter["n"] += 1
+            return original(case) + f"\nVariant hint #{counter['n']}\n"
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _build_synthetic_handbook(root, [("synthetic_source", "Policy.txt")])
+            with mock.patch.object(
+                diagnostics, "_state_work_order", side_effect=diverging_work_order
             ):
                 with self.assertRaises(RuntimeError):
                     diagnostics.build_diagnostic_tasks(

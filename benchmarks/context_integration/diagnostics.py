@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 from pathlib import Path
 from typing import Mapping
@@ -216,6 +217,173 @@ def verify_recall_package_integrity(
     return issues
 
 
+_STATE_FACT_LINE = re.compile(r"^- \[(?P<id>[^\]]+)\] (?P<text>.*)$")
+
+
+def _parse_state_file(text: str) -> tuple[list[str], list[tuple[str, str]], list[str]]:
+    """把 STATE.md 拆成头部行、事实行 ``(id, text)`` 序列和尾部行。"""
+    header: list[str] = []
+    fact_lines: list[tuple[str, str]] = []
+    tail: list[str] = []
+    seen_fact = False
+    for line in text.splitlines():
+        match = _STATE_FACT_LINE.match(line)
+        if match:
+            seen_fact = True
+            fact_lines.append((match["id"], match["text"]))
+        elif seen_fact:
+            tail.append(line)
+        else:
+            header.append(line)
+    return header, fact_lines, tail
+
+
+def verify_applicability_pair_consistency(
+    output_root: str | Path,
+    *,
+    cases: Mapping[str, Mapping] | None = None,
+) -> list[dict]:
+    """校验 Applicability A/B 任务包除状态事实外完全一致，返回违规列表。
+
+    Applicability 包（``{case_id}_state_A`` / ``{case_id}_state_B``）是同一母任务的
+    两个镜像状态（见 HANDOFF-2026-08-25.md 第 4 节未完成项第 4 条与
+    docs/context-integration/design.md 的 A/B 反事实对照条款）：除被翻转的状态事实外，
+    规则文本、工单措辞、呈现顺序、动作选项和任何其他内容都不允许有差异，
+    否则模型可能靠无关线索而不是规则推理作答。
+
+    状态事实载体是 STATE.md 中形如 ``- [事实编号] 事实文本`` 的行；其中只有登记表
+    声明被 A/B 翻转的事实（A/B 事实文本不同的编号）允许不一致。三类违规：
+    1. ``applicability_pair_files``：A/B 包目录缺失或文件集合不一致（多文件/缺文件）；
+    2. ``applicability_pair_content``：STATE.md 之外的共享文件（SYSTEM.md、
+       WORK_ORDER.md、POLICY.md 等）内容不一致；
+    3. ``applicability_pair_state``：STATE.md 的头部/尾部措辞、事实编号顺序、
+       未翻转事实的文本或事实集合与 A/B 镜像约束不一致。
+    空列表表示全部通过。
+    """
+    if cases is None:
+        cases = load_diagnostic_cases()
+    issues: list[dict] = []
+
+    def add(case_id: str, invariant: str, message: str) -> None:
+        issues.append({"case": case_id, "invariant": invariant, "message": message})
+
+    output = Path(output_root)
+
+    for case_id, case in cases.items():
+        states = case.get("states", {})
+        if set(states) != {"A", "B"}:
+            add(
+                case_id,
+                "applicability_pair_files",
+                f"states must be exactly A and B, got {sorted(states)!r}",
+            )
+            continue
+
+        # 登记表声明的翻转事实：A/B 事实文本不同的编号；其余编号为豁免范围之外。
+        texts_a = {fact["id"]: fact["text"] for fact in states["A"].get("facts", [])}
+        texts_b = {fact["id"]: fact["text"] for fact in states["B"].get("facts", [])}
+        flipped = {
+            fact_id
+            for fact_id in set(texts_a) & set(texts_b)
+            if texts_a[fact_id] != texts_b[fact_id]
+        }
+        registry_order = [fact["id"] for fact in states["A"].get("facts", [])]
+
+        dir_a = output / f"{case_id}_state_A"
+        dir_b = output / f"{case_id}_state_B"
+        missing = [label for label, d in (("A", dir_a), ("B", dir_b)) if not d.is_dir()]
+        if missing:
+            add(
+                case_id,
+                "applicability_pair_files",
+                f"missing state package directories for states {missing}",
+            )
+            continue
+        files_a = {p.name for p in dir_a.iterdir() if p.is_file()}
+        files_b = {p.name for p in dir_b.iterdir() if p.is_file()}
+        if files_a != files_b:
+            add(
+                case_id,
+                "applicability_pair_files",
+                f"file sets differ; only in A: {sorted(files_a - files_b)}, "
+                f"only in B: {sorted(files_b - files_a)}",
+            )
+            continue
+
+        # 不变量 2：状态事实载体之外的文件必须逐字节一致。
+        for name in sorted(files_a):
+            if name == "STATE.md":
+                continue
+            if (dir_a / name).read_bytes() != (dir_b / name).read_bytes():
+                add(
+                    case_id,
+                    "applicability_pair_content",
+                    f"{name} differs between state A and B packages",
+                )
+
+        # 不变量 3：STATE.md 只允许被翻转的事实文本不一致。
+        if "STATE.md" not in files_a:
+            add(case_id, "applicability_pair_state", "STATE.md is missing")
+            continue
+        parsed_a = _parse_state_file((dir_a / "STATE.md").read_text(encoding="utf-8"))
+        parsed_b = _parse_state_file((dir_b / "STATE.md").read_text(encoding="utf-8"))
+        header_a, facts_a, tail_a = parsed_a
+        header_b, facts_b, tail_b = parsed_b
+        if not facts_a or not facts_b:
+            add(
+                case_id,
+                "applicability_pair_state",
+                "STATE.md has no parseable fact lines",
+            )
+            continue
+        if header_a != header_b:
+            add(
+                case_id,
+                "applicability_pair_state",
+                "STATE.md header differs between state A and B packages",
+            )
+        if tail_a != tail_b:
+            add(
+                case_id,
+                "applicability_pair_state",
+                "STATE.md trailing content differs between state A and B packages",
+            )
+        order_a = [fact_id for fact_id, _ in facts_a]
+        order_b = [fact_id for fact_id, _ in facts_b]
+        if order_a != order_b:
+            add(
+                case_id,
+                "applicability_pair_state",
+                f"fact presentation order differs; A: {order_a}, B: {order_b}",
+            )
+            continue
+        if order_a != registry_order:
+            add(
+                case_id,
+                "applicability_pair_state",
+                f"fact order {order_a} drifted from registered order {registry_order}",
+            )
+        by_id_b = dict(facts_b)
+        for fact_id, text_a in facts_a:
+            text_b = by_id_b[fact_id]
+            if fact_id in flipped:
+                if text_a == text_b:
+                    add(
+                        case_id,
+                        "applicability_pair_state",
+                        f"flipped fact {fact_id} is identical between packages; "
+                        "the state flip is not reflected",
+                    )
+            elif text_a != text_b:
+                add(
+                    case_id,
+                    "applicability_pair_state",
+                    f"non-flipped fact {fact_id} differs between state A and B packages",
+                )
+
+    return issues
+
+
 def _reset_directory(path: Path) -> None:
     if path.exists():
         shutil.rmtree(path)
@@ -316,6 +484,11 @@ def build_diagnostic_tasks(
     integrity = verify_recall_package_integrity(output, handbook, cases=cases)
     if integrity:
         raise RuntimeError(f"recall package integrity check failed: {integrity}")
+
+    # 生成时内建校验：证明 Applicability A/B 包除状态事实外完全一致。
+    pair_issues = verify_applicability_pair_consistency(output, cases=cases)
+    if pair_issues:
+        raise RuntimeError(f"applicability pair consistency check failed: {pair_issues}")
 
     return tasks
 
