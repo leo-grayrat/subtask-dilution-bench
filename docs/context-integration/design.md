@@ -86,6 +86,8 @@ Recall、Applicability 也要匿名导出，并遵守相同的独立会话原则
 
 我们关心的运行模式是 `Recall = 对、Applicability = 对、Local = 对、Full = 错`。Full 未到达目标决定时单列为“未到达”，不能算对，也不能算错。
 
+跨层对齐动作码时，注意 Recall / Applicability 登记表与 Local / Full 评分器各自命名，两者之间是层间同义映射而不是同一套词表：S02 的登记表动作码 `clear_and_post` 对应评分器路线名 `clear`，`exception` 对应 `exception`。将来做跨层模式分析时按这个一一对应关系对齐即可；本说明不改变任何已冻结的登记表数据或评分器词表。
+
 统计时以母任务为组：
 
 - 先在每个母任务、每个 A/B 状态内汇总重复运行；
