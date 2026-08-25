@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from pathlib import Path
@@ -51,13 +52,7 @@ def validate_diagnostic_registry(
 
         # 不变量 1：来源文件存在。
         if handbook is not None:
-            workspace = (
-                handbook
-                / "tasks"
-                / str(case.get("source_task", ""))
-                / "environment"
-                / "initial_workspace"
-            )
+            workspace = _source_workspace(handbook, case)
             for filename in case.get("policy_files", []):
                 source = workspace / str(filename)
                 if not source.is_file():
@@ -149,6 +144,78 @@ def validate_diagnostic_registry(
     return issues
 
 
+def _source_workspace(handbook: Path, case: Mapping) -> Path:
+    return (
+        handbook
+        / "tasks"
+        / str(case.get("source_task", ""))
+        / "environment"
+        / "initial_workspace"
+    )
+
+
+def sha256_file(path: str | Path) -> str:
+    """计算文件的 SHA-256 摘要，用于证明材料完整性。"""
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_recall_package_integrity(
+    output_root: str | Path,
+    handbook_dir: str | Path,
+    *,
+    cases: Mapping[str, Mapping] | None = None,
+) -> list[dict]:
+    """校验 Recall 任务包携带的规则文件与来源文件逐字节一致，返回违规列表。
+
+    Recall 包（``{case_id}_policy``）把登记表 ``policy_files`` 列出的来源规则文件
+    复制进 ``reference/``。本函数逐文件用 SHA-256 比对，证明包内内容完整、
+    未被改写、未被截断（见 HANDOFF-2026-08-25.md 第 4 节未完成项第 3 条）。
+    三类违规：
+    1. ``recall_source_file``：来源文件在 HANDBOOK 工作区内不存在；
+    2. ``recall_package_file``：Recall 包内缺少应有的规则文件；
+    3. ``recall_sha256``：包内文件与来源文件的 SHA-256 不一致。
+    任何缺失都显式报告而不是静默通过；空列表表示全部通过。
+    """
+    if cases is None:
+        cases = load_diagnostic_cases()
+    issues: list[dict] = []
+
+    def add(case_id: str, invariant: str, message: str) -> None:
+        issues.append({"case": case_id, "invariant": invariant, "message": message})
+
+    handbook = Path(handbook_dir)
+    output = Path(output_root)
+
+    for case_id, case in cases.items():
+        workspace = _source_workspace(handbook, case)
+        reference = output / f"{case_id}_policy" / "reference"
+        for filename in case.get("policy_files", []):
+            name = Path(str(filename)).name
+            source = workspace / str(filename)
+            copied = reference / name
+            if not source.is_file():
+                add(case_id, "recall_source_file", f"missing source file: {source}")
+                continue
+            if not copied.is_file():
+                add(case_id, "recall_package_file", f"missing package file: {copied}")
+                continue
+            source_hash = sha256_file(source)
+            copied_hash = sha256_file(copied)
+            if source_hash != copied_hash:
+                add(
+                    case_id,
+                    "recall_sha256",
+                    f"{name}: package sha256 {copied_hash} does not match "
+                    f"source sha256 {source_hash}",
+                )
+
+    return issues
+
+
 def _reset_directory(path: Path) -> None:
     if path.exists():
         shutil.rmtree(path)
@@ -214,13 +281,7 @@ def build_diagnostic_tasks(
     tasks: dict[str, Path] = {}
 
     for case_id, case in cases.items():
-        source_workspace = (
-            handbook
-            / "tasks"
-            / str(case["source_task"])
-            / "environment"
-            / "initial_workspace"
-        )
+        source_workspace = _source_workspace(handbook, case)
 
         policy_task = output / f"{case_id}_policy"
         _reset_directory(policy_task)
@@ -250,6 +311,11 @@ def build_diagnostic_tasks(
                 encoding="utf-8",
             )
             tasks[f"{case_id}:state_{state_id}"] = state_task
+
+    # 生成时内建校验：证明 Recall 包复制的是完整原始规则文件。
+    integrity = verify_recall_package_integrity(output, handbook, cases=cases)
+    if integrity:
+        raise RuntimeError(f"recall package integrity check failed: {integrity}")
 
     return tasks
 

@@ -1,8 +1,10 @@
 import copy
+import hashlib
 import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 SYNTHETIC_CASES = {
@@ -364,6 +366,156 @@ class RegistryInvariantTests(unittest.TestCase):
         self.assertEqual(
             self._issues_for(issues, "X01", "single_flipped_fact"), []
         )
+
+
+class RecallIntegrityTests(unittest.TestCase):
+    """校验 Recall 任务包携带的规则文件与原始来源文件逐字节一致。
+
+    Recall 包（``{case_id}_policy``）把登记表 ``policy_files`` 列出的来源规则文件
+    复制进 ``reference/``。这里用 SHA-256 证明包内文件完整、未被改写、未被截断；
+    来源文件缺失时必须给出清晰错误而不是静默通过。
+    """
+
+    def _verify(self, output_root, handbook_dir, cases=None):
+        from benchmarks.context_integration.diagnostics import (
+            verify_recall_package_integrity,
+        )
+
+        return verify_recall_package_integrity(output_root, handbook_dir, cases=cases)
+
+    def _issues_for(self, issues, case_id, invariant):
+        return [
+            issue
+            for issue in issues
+            if issue["case"] == case_id and issue["invariant"] == invariant
+        ]
+
+    def _sha256(self, data: bytes) -> str:
+        return hashlib.sha256(data).hexdigest()
+
+    def test_recall_packages_carry_unmodified_source_files(self):
+        from benchmarks.context_integration.diagnostics import build_diagnostic_tasks
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _build_synthetic_handbook(root, FROZEN_POLICY_SOURCES.values())
+            tasks = build_diagnostic_tasks(root / "handbook", root / "generated")
+
+            for case_id, (source_task, policy_name) in FROZEN_POLICY_SOURCES.items():
+                with self.subTest(case_id=case_id):
+                    source = (
+                        root
+                        / "handbook/tasks"
+                        / source_task
+                        / "environment/initial_workspace"
+                        / policy_name
+                    )
+                    copied = tasks[f"{case_id}:policy"] / "reference" / policy_name
+                    self.assertEqual(
+                        self._sha256(copied.read_bytes()),
+                        self._sha256(source.read_bytes()),
+                        "Recall 包内规则文件与来源文件字节不一致",
+                    )
+
+            issues = self._verify(root / "generated", root / "handbook")
+            self.assertEqual(issues, [], f"Recall 包完整性校验未通过：{issues}")
+
+    def test_rewritten_or_truncated_package_file_is_detected(self):
+        from benchmarks.context_integration.diagnostics import build_diagnostic_tasks
+
+        corruptions = {
+            "rewritten": lambda data: data + b"\ntampered rewrite\n",
+            "truncated": lambda data: data[: len(data) // 2],
+        }
+        for kind, corrupt in corruptions.items():
+            with self.subTest(kind=kind):
+                with tempfile.TemporaryDirectory() as td:
+                    root = Path(td)
+                    _build_synthetic_handbook(
+                        root, [("synthetic_source", "Policy.txt")]
+                    )
+                    build_diagnostic_tasks(
+                        root / "handbook",
+                        root / "generated",
+                        cases=SYNTHETIC_CASES,
+                    )
+                    source = (
+                        root
+                        / "handbook/tasks/synthetic_source"
+                        / "environment/initial_workspace/Policy.txt"
+                    )
+                    copied = root / "generated/X01_policy/reference/Policy.txt"
+                    copied.write_bytes(corrupt(source.read_bytes()))
+
+                    issues = self._verify(
+                        root / "generated", root / "handbook", cases=SYNTHETIC_CASES
+                    )
+
+                    sha_issues = self._issues_for(issues, "X01", "recall_sha256")
+                    self.assertEqual(
+                        len(sha_issues),
+                        1,
+                        f"{kind} 场景未被哈希校验抓到：{issues}",
+                    )
+                    self.assertIn(self._sha256(source.read_bytes()), sha_issues[0]["message"])
+
+    def test_missing_package_file_is_reported(self):
+        from benchmarks.context_integration.diagnostics import build_diagnostic_tasks
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _build_synthetic_handbook(root, [("synthetic_source", "Policy.txt")])
+            build_diagnostic_tasks(
+                root / "handbook", root / "generated", cases=SYNTHETIC_CASES
+            )
+            (root / "generated/X01_policy/reference/Policy.txt").unlink()
+
+            issues = self._verify(
+                root / "generated", root / "handbook", cases=SYNTHETIC_CASES
+            )
+
+        self.assertEqual(len(self._issues_for(issues, "X01", "recall_package_file")), 1)
+
+    def test_missing_source_file_is_reported_not_silently_passed(self):
+        from benchmarks.context_integration.diagnostics import build_diagnostic_tasks
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _build_synthetic_handbook(root, [("synthetic_source", "Policy.txt")])
+            build_diagnostic_tasks(
+                root / "handbook", root / "generated", cases=SYNTHETIC_CASES
+            )
+            # 生成后来源文件不可用（例如指向了错误的 HANDBOOK 工作区），
+            # 校验必须显式报告而不是静默通过。
+            (
+                root
+                / "handbook/tasks/synthetic_source/environment/initial_workspace/Policy.txt"
+            ).unlink()
+
+            issues = self._verify(
+                root / "generated", root / "handbook", cases=SYNTHETIC_CASES
+            )
+
+        self.assertEqual(len(self._issues_for(issues, "X01", "recall_source_file")), 1)
+
+    def test_builder_rejects_corrupted_copy(self):
+        from benchmarks.context_integration import diagnostics
+
+        def corrupting_copy(src, dst, **kwargs):
+            Path(dst).write_bytes(Path(src).read_bytes() + b"\nsilent rewrite\n")
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _build_synthetic_handbook(root, [("synthetic_source", "Policy.txt")])
+            with mock.patch.object(
+                diagnostics.shutil, "copy2", side_effect=corrupting_copy
+            ):
+                with self.assertRaises(RuntimeError):
+                    diagnostics.build_diagnostic_tasks(
+                        root / "handbook",
+                        root / "generated",
+                        cases=SYNTHETIC_CASES,
+                    )
 
 
 if __name__ == "__main__":
