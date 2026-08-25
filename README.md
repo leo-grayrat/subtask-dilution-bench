@@ -41,7 +41,7 @@
 - [x] 将三个方向分别整理成独立实验设计，避免为了统一故事而共享指标或强行耦合。
 - [ ] 子任务稀释：从候选 benchmark 抽真实复杂任务，按 direct / sham / reconsider 做小规模 checkpoint-fork pilot。
 - [ ] 显著反馈导致资源失衡：从有两个真实竞争目标的任务中，分别做“同一信息的呈现显著性”和“连续在线/批量延后反馈”两个 2×2 模块；v0 使用真正进入评分器的受控价值权重，记录局部投入和全局机会成本。
-- [ ] 上下文不参与决策：v0 已冻结 S01、S02、S04、S07、S08、S09、S10 共 7 个母任务；Local/Full 的 A/B 生成、评分和匿名打包已经完成，Recall、Applicability、独立隔离验证和正式重复运行尚未完成。当前不再扩题，也还没有真实模型研究结果。
+- [ ] 上下文不参与决策：v0 已冻结 S01、S02、S04、S07、S08、S09、S10 共 7 个母任务；Local/Full 与 Recall、Applicability 四层材料的生成、评分、校验（登记表不变量、Recall 哈希、Applicability A/B 一致性）、匿名发布和泄漏扫描均已完成，并通过真实 HANDBOOK 不计分冒烟检查。这些全部是工程完成：正式模型实验尚未开始，没有任何模型行为结果，独立隔离验证仍未解决，在隔离通过以前不能开跑。当前不再扩题。
 - [ ] 三个方向都先做小规模 pilot；没有稳定信号的方向及时停止，不先扩成大题库。
 
 ## 目前文档
@@ -57,7 +57,7 @@
 - [`docs/feedback-allocation/source-selection.md`](docs/feedback-allocation/source-selection.md)：显著反馈方向的参考资料与素材筛选。
 - [`docs/context-integration/design.md`](docs/context-integration/design.md)：上下文不参与决策的实验设计。
 - [`docs/context-integration/pilot-spec.md`](docs/context-integration/pilot-spec.md)：上下文不参与决策的第一轮 pilot 规格。
-- [`docs/context-integration/status-v0.md`](docs/context-integration/status-v0.md)：七个已实现母任务、现有工程资产、缺失诊断层和当前结论边界。
+- [`docs/context-integration/status-v0.md`](docs/context-integration/status-v0.md)：七个已实现母任务、现有工程资产、四层材料的完成状态和当前结论边界。
 - [`docs/context-integration/candidate-screening.md`](docs/context-integration/candidate-screening.md)：HANDBOOK 真实任务的 pilot 候选筛选记录。
 - [`docs/context-integration/source-selection.md`](docs/context-integration/source-selection.md)：上下文整合方向的参考 benchmark 与筛选标准。
 - [`docs/context-integration/next-samples-v1.md`](docs/context-integration/next-samples-v1.md)：第二批六个已实现母任务的历史选择依据；当前冻结状态以 `status-v0.md` 和 `pilot-spec.md` 为准。
