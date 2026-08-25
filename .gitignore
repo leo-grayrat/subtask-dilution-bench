@@ -9,3 +9,6 @@ experiments/*-build-check/
 experiments/next-samples-release-check/
 experiments/diagnostics-release-check/
 experiments/s01-first-run/
+
+# Downloaded external benchmark metadata (GAIA/SWE-bench material acquisition cache)
+.materials-cache/
