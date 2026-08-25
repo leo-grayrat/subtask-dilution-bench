@@ -46,6 +46,7 @@
 
 ## 目前文档
 
+- [`HANDOFF-2026-08-25.md`](HANDOFF-2026-08-25.md)：给下一位模型的完整交接入口，包含本轮完成内容、失败边界、当前代码停点、必读顺序和接手复述检查。
 - [`docs/research-ledger.md`](docs/research-ledger.md)：跨版本研究总账，固定三条研究线、不得静默推翻的原则、现有成果位置和证据边界。任何新搜索、扩题或实现先对照这里。
 - [`docs/superpowers/specs/2026-08-24-integrated-benchmark-program-design.md`](docs/superpowers/specs/2026-08-24-integrated-benchmark-program-design.md)：三条实验线的综合结构、推进顺序和共同测试前门槛。
 - [`docs/experiment-records.md`](docs/experiment-records.md)：三条线共用的批次、母任务、运行、产物、评分、匿名、版本和重跑记录格式；只统一记录，不建立共同总分。
